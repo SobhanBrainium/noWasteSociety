@@ -41,7 +41,7 @@ module.exports = function(emailType) {
         var self = {
             send: () => {
                 var mailOption = {
-                    from: `'"Trolley" <${emailFrom}>'`,
+                    from: `'"No Waste Society" <${emailFrom}>'`,
                     to: to,
                     subject: mailDict[emailType].subject,
                     // text: `Hello ${data.name}, please verify your studiolive account. Your verification code is ${data.otp}`
@@ -50,7 +50,7 @@ module.exports = function(emailType) {
                 /** Temporary Email text */
                 switch(emailType) {
                     case 'userRegistrationMail': 
-                        mailOption.text = `Hello ${data.firstName}, welcome to Trolley.`
+                        mailOption.text = `Hello ${data.firstName}, welcome to No Waste Society.`
                         break;
                     case 'forgotPasswordMail': 
                         mailOption.text = `Hello ${data.firstName}, use ${data.forgotPasswordOtp} code to reset your password.`

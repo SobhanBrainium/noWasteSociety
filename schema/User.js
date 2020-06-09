@@ -1,4 +1,5 @@
 import mongoose from "mongoose"
+import bcrypt from "bcryptjs"
 
 const Schema = mongoose.Schema
 
@@ -18,6 +19,24 @@ const userSchema = new Schema({
     pushMode : {type: String, default: ''},
 },{
     timestamps: true
-})
+});
+
+userSchema.pre('save', function(next) {
+    let customer = this;
+    if (!customer.isModified('password')) {
+        return next();
+    }
+
+    bcrypt.hash(customer.password, 8, function(err, hash) {
+        if (err) {
+            return next(err);
+        } else {
+            if (customer.password !== '') {
+                customer.password = hash
+            }
+            next();
+        }
+    })
+});
 
 export default userSchema
