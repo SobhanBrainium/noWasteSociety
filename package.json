@@ -1,0 +1,53 @@
+{
+  "name": "no_waste_society",
+  "version": "1.0.0",
+  "description": "",
+  "main": "noWasteSociety.js",
+  "scripts": {
+    "start": "nodemon --exec babel-node ./noWasteSociety.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SobhanBrainium/noWasteSociety.git"
+  },
+  "author": "Sobhan Das",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SobhanBrainium/noWasteSociety/issues"
+  },
+  "homepage": "https://github.com/SobhanBrainium/noWasteSociety#readme",
+  "dependencies": {
+    "@hapi/joi": "^17.1.1",
+    "apn": "^2.2.0",
+    "async": "^3.2.0",
+    "axios": "^0.19.2",
+    "base64-to-image": "^1.0.2",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.5",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.1.7-alpha.3",
+    "express-validator": "^6.5.0",
+    "file-type": "^14.6.1",
+    "geolib": "^3.3.1",
+    "image-downloader": "^4.0.1",
+    "jsonwebtoken": "^8.5.1",
+    "lodash": "^4.17.15",
+    "moment": "^2.26.0",
+    "mongoose": "^5.9.18",
+    "mongoose-float": "^1.0.4",
+    "node-fetch": "^2.6.0",
+    "node-gcm": "^1.0.2",
+    "nodemailer": "^6.4.8",
+    "nodemailer-smtp-transport": "^2.7.4",
+    "nodemon": "^2.0.4",
+    "npm": "^6.14.5"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.5.5",
+    "@babel/core": "^7.5.5",
+    "@babel/node": "^7.5.5",
+    "@babel/preset-env": "^7.5.5"
+  }
+}
