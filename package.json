@@ -37,6 +37,7 @@
     "moment": "^2.26.0",
     "mongoose": "^5.9.18",
     "mongoose-float": "^1.0.4",
+    "multer": "^1.4.2",
     "node-fetch": "^2.6.0",
     "node-gcm": "^1.0.2",
     "nodemailer": "^6.4.8",

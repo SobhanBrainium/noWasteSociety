@@ -1,8 +1,10 @@
 import express from "express"
 import mongoose from "mongoose"
+import multer from "multer"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
 import customerValidator from "../middlewares/validators/customer/customer-validator"
+import jwtTokenValidator from "../middlewares/jwt-validation-middlewares"
 import userSchema from "../schema/User"
 import otpSchema from "../schema/OTPLog"
 import config from "../config"
@@ -16,6 +18,34 @@ const mail = require('../modules/sendEmail');
 let customerAPI = express.Router()
 customerAPI.use(express.json())
 customerAPI.use(express.urlencoded({extended: false}))
+
+//#region file upload using multer
+let storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, 'public/img/profile-pic');
+    },
+    filename: function (req, file, cb) {
+      let fileExt = file.mimetype.split('/')[1];
+      if (fileExt == 'jpeg'){ fileExt = 'jpg';}
+      let fileName = req.user.id + '-' + Date.now() + '.' + fileExt;
+      cb(null, fileName);
+    }
+})
+
+let restrictImgType = function(req, file, cb) {
+    var allowedTypes = ['image/jpeg','image/gif','image/png', 'image/jpg'];
+      if (allowedTypes.indexOf(req.file.mimetype) !== -1){
+        // To accept the file pass `true`
+        cb(null, true);
+      } else {
+        // To reject this file pass `false`
+        cb(null, false);
+       //cb(new Error('File type not allowed'));// How to pass an error?
+      }
+};
+
+const upload = multer({ storage: storage, limits: {fileSize:2000000, fileFilter:restrictImgType} }).single('image');
+//#endregion
 
 //#region registration
 customerAPI.post('/registration', customerValidator.customerRegister, async (req, res) => {
@@ -34,9 +64,38 @@ customerAPI.post('/registration', customerValidator.customerRegister, async (req
             }else{
                 //insert customer to DB with social id
                 const addCustomerWithSocial = await User.create(data)
-                console.log(addCustomerWithSocial,'addCustomerWithSocial')
-                if(addCustomerWithSocial){
+                if(addCustomerWithSocial != ''){
+                    //ADD DATA IN USER LOGIN DEVICE TABLE
+                    const userDeviceData = {
+                        userId: addCustomerWithSocial._id,
+                        userType: 'CUSTOMER',
+                        appType: data.appType,
+                        pushMode: data.pushMode,
+                        deviceToken: data.deviceToken
+                    }
 
+                    const success = await new userDeviceLoginSchema(userDeviceData).save()
+                    
+                    if(success != ''){
+                        let loginId = success._id;
+                        let loginType = data.loginType;
+
+                        const authToken = generateToken(success);
+
+                        const finalResponse = {
+                            userDetails: {
+                                ...addCustomerWithSocial.toObject()
+                            },
+                            authToken: authToken
+                        }
+
+                        res.send({
+                            success: true,
+                            STATUSCODE: 200,
+                            message: 'Registration Successfull',
+                            response_data: finalResponse
+                        })
+                    }
                 }
             }
         }else{
@@ -130,6 +189,7 @@ customerAPI.post('/login', customerValidator.customerLogin, async (req, res) => 
             }
 
             const isCustomerExist = await User.findOne(loginCond)
+            console.log(isCustomerExist,'exist')
             if(isCustomerExist != null){
                 if (data.userType == 'admin') {
                     var userType = 'ADMIN'
@@ -159,7 +219,7 @@ customerAPI.post('/login', customerValidator.customerLogin, async (req, res) => 
                             firstName: isCustomerExist.firstName,
                             lastName: isCustomerExist.lastName,
                             email: isCustomerExist.email,
-                            phone: isCustomerExist.phone.toString(),
+                            phone: isCustomerExist.phone,
                             socialId: isCustomerExist.socialId,
                             id: isCustomerExist._id,
                             loginId: loginId,
@@ -169,11 +229,12 @@ customerAPI.post('/login', customerValidator.customerLogin, async (req, res) => 
                         },
                         authToken: authToken
                     }
+                    console.log(response,'response')
 
                     res.send({
                         success: true,
                         STATUSCODE: 200,
-                        message: 'Login Successfull',
+                        message: 'Login Successful',
                         response_data: response
                     })
                 }else{//NORMAL LOGIN
@@ -221,7 +282,152 @@ customerAPI.post('/login', customerValidator.customerLogin, async (req, res) => 
                         }
                     }
                 }
+            }else{
+                res.send({
+                    success: true,
+                    STATUSCODE: 201,
+                    message: 'No user found. New User.',
+                    response_data: {}
+                })
             }
+        }
+    } catch (error) {
+        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region View Profile
+customerAPI.get('/viewProfile',jwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        let response = {
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            email: req.user.email,
+            phone: req.user.phone
+        }
+
+        if (req.user.profileImage != '') {
+            response.profileImage = `${config.serverhost}:${config.port}/img/profile-pic/` + req.user.profileImage
+        } else {
+            response.profileImage = ''
+        }
+
+        res.send({
+            success: true,
+            STATUSCODE: 200,
+            message: 'User profile fetched successfully',
+            response_data: response
+        })
+        
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region Edit Profile */
+customerAPI.post('/editProfile',jwtTokenValidator.validateToken, customerValidator.editProfile, async(req, res) => {
+    try {
+        const userId = req.user._id
+
+        const userDetail =  await User.findById(userId)
+        
+        if(req.body.firstName != ''){
+            userDetail.firstName = req.body.firstName
+        }
+
+        if(req.body.lastName != ''){
+            userDetail.lastName = req.body.lastName
+        }
+
+        if(req.body.email != ''){
+            userDetail.email = req.body.email
+        }
+
+        if(req.body.phone != ''){
+            userDetail.phone = req.body.phone
+        }
+
+        const updateUserDetail = await userDetail.save()
+
+        res.send({
+            success: true,
+            STATUSCODE: 200,
+            message: 'Profile updated successfully.',
+            response_data: updateUserDetail
+        })
+
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+/** Change password */
+customerAPI.post('/changePassword',jwtTokenValidator.validateToken, customerValidator.changePassword, function(req, res) {
+    registerService.changePassword(req.body, function(result) {
+        res.status(200).send(result);
+    });
+})
+
+//#region  Profile image upload */
+customerAPI.post('/profileImageUpload',jwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        if(req.file != ''){
+            upload(req, res, async function (err) {
+                if (err) {
+                    // A Multer error occurred when uploading.
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'File size too large. Upload size maximum 2MB',
+                        response_data: {}
+                    })
+                }
+
+                const userDetail = req.user
+                const profilePicName = req.file.filename
+
+                const updateProfilePic = await User.updateOne({_id : userDetail._id},{
+                    $set : {
+                        profileImage : profilePicName
+                    }
+                })
+
+                if(updateProfilePic){
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Profile pic uploaded successfully.',
+                        response_data: {}
+                    })
+                }else{
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'Something went wrong.',
+                        response_data: {}
+                    })
+                }
+
+            })
         }
     } catch (error) {
         res.send({

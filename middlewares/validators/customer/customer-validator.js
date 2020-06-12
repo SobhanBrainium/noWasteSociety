@@ -319,7 +319,7 @@ module.exports = {
         // console.log(req.body);
         // console.log(req.files);
         const rules = joi.object({
-            customerId: joi.string().required().error(new Error('Customer id is required')),
+            // customerId: joi.string().required().error(new Error('Customer id is required')),
             userType: joi.string().required().valid(...userTypeVal).error(new Error('Please send userType'))
         });
         const imageRules = joi.object({

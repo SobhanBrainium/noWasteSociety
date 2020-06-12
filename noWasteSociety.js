@@ -1,5 +1,4 @@
 import express from "express";
-import fileUpload from "express-fileupload"
 import os from "os"
 import fs from "fs"
 import http from "http"
@@ -67,7 +66,6 @@ app.use(cookieParser());
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(fileUpload());
 
 app.use(express.static(path.join(__dirname, "public")));
 
