@@ -189,7 +189,7 @@ customerAPI.post('/login', customerValidator.customerLogin, async (req, res) => 
             }
 
             const isCustomerExist = await User.findOne(loginCond)
-            console.log(isCustomerExist,'exist')
+
             if(isCustomerExist != null){
                 if (data.userType == 'admin') {
                     var userType = 'ADMIN'
@@ -380,12 +380,50 @@ customerAPI.post('/editProfile',jwtTokenValidator.validateToken, customerValidat
 })
 //#endregion
 
-/** Change password */
-customerAPI.post('/changePassword',jwtTokenValidator.validateToken, customerValidator.changePassword, function(req, res) {
-    registerService.changePassword(req.body, function(result) {
-        res.status(200).send(result);
-    });
+//#region  Change password */
+customerAPI.post('/changePassword',jwtTokenValidator.validateToken, customerValidator.changePassword, async (req, res) => {
+    try {
+        const data = req.body
+        if(req.user._id == data.customerId){
+            const comparePass = bcrypt.compareSync(data.oldPassword, req.user.password);
+            if(comparePass == true){
+            let userDetail = await User.findById(req.user._id)
+            userDetail.password = data.newPassword
+
+            const updateData = await userDetail.save()
+            res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Password updated successfully',
+                response_data: {}
+            })
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 422,
+                    message: 'Invalid old password',
+                    response_data: {}
+                });
+            }
+        }else{
+            res.send({
+                success: false,
+                STATUSCODE: 422,
+                message: 'User not found',
+                response_data: {}
+            });
+        }
+    } catch (error) {
+        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        });
+    }
 })
+//#endregion
 
 //#region  Profile image upload */
 customerAPI.post('/profileImageUpload',jwtTokenValidator.validateToken, async(req, res) => {
@@ -437,6 +475,107 @@ customerAPI.post('/profileImageUpload',jwtTokenValidator.validateToken, async(re
             response_data: {}
         })
     }
+})
+//#endregion
+
+//#region  Forgot Password */
+customerAPI.post('/forgotPassword', customerValidator.forgotPasswordEmail, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            const checkCustomerIsExist = await User.findOne({email: data.email, loginType: 'EMAIL'})
+            if(checkCustomerIsExist != null){
+                let forgotPasswordOtp = generateOTP();
+                let customer = checkCustomerIsExist.toObject();
+                customer.forgotPasswordOtp = forgotPasswordOtp;
+
+                //#region save OTP to DB
+                const addedOTPToTable = new OTPLog({
+                    userId : checkCustomerIsExist._id,
+                    phone : checkCustomerIsExist.phone,
+                    otp : forgotPasswordOtp,
+                    usedFor : "ForgotPassword",
+                    status : 1
+                })
+                const savetoDB = await addedOTPToTable.save()
+                //#endregion
+
+                try {
+                    mail('forgotPasswordMail')(customer.email, customer).send();
+                    res.send({
+                        success: false,
+                        STATUSCODE: 200,
+                        message: 'Please check your email. We have sent a code to be used to reset password.',
+                        response_data: {
+                            id : customer._id,
+                            email: customer.email,
+                            forgotPassOtp: forgotPasswordOtp
+                        }
+                    });
+                } catch (Error) {
+                    res.send('Something went wrong while sending email');
+                }
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 422,
+                    message: 'User not found',
+                    response_data: {}
+                });
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        });
+    }
+});
+//#endregion
+
+//#region  Reset Password */
+customerAPI.post('/resetPassword', customerValidator.resetPassword, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            const customerIsExist = await User.findOne({ email: data.email, loginType: 'EMAIL' })
+            if(customerIsExist != null){
+                customerIsExist.password = data.password
+                await customerIsExist.save()
+
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'Password updated successfully',
+                    response_data: {}
+                });
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 422,
+                    message: 'User not found',
+                    response_data: {}
+                });
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        });
+    }
+});
+//#endregion
+
+//#region  Resend Forgot Password OTP */
+customerAPI.post('/resendOtp', customerValidator.resendForgotPassOtp, function(req, res) {
+    registerService.resendForgotPassordOtp(req.body, function(result) {
+        res.status(200).send(result);
+    });
 })
 //#endregion
 
