@@ -251,7 +251,7 @@ module.exports = {
             customerId: joi.string().required().error(new Error('Customer id is required')),
             firstName: joi.string().required().error(new Error('First name is required')),
             lastName: joi.string().required().error(new Error('Last name is required')),
-            // countryCode: joi.string().required().error(new Error('Country code is required')),
+            gender: joi.string().required().error(new Error('Gender is required')),
             email: joi.string().required().email().error((err) => {
                 if (err[0].value === undefined || err[0].value === '' || err[0].value === null) {
                     return new Error('Email is required');

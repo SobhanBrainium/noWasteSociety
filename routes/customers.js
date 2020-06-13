@@ -360,6 +360,10 @@ customerAPI.post('/editProfile',jwtTokenValidator.validateToken, customerValidat
             userDetail.phone = req.body.phone
         }
 
+        if(req.body.gender != ''){
+            userDetail.gender = req.body.gender
+        }
+
         const updateUserDetail = await userDetail.save()
 
         res.send({
@@ -503,12 +507,13 @@ customerAPI.post('/forgotPassword', customerValidator.forgotPasswordEmail, async
                 try {
                     mail('forgotPasswordMail')(customer.email, customer).send();
                     res.send({
-                        success: false,
+                        success: true,
                         STATUSCODE: 200,
                         message: 'Please check your email. We have sent a code to be used to reset password.',
                         response_data: {
                             id : customer._id,
                             email: customer.email,
+                            phone : customer.phone,
                             forgotPassOtp: forgotPasswordOtp
                         }
                     });
