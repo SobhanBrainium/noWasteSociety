@@ -153,6 +153,7 @@ module.exports = {
                     return new Error('Please enter valid email');
                 }
             }),
+            otp: joi.string().required().error(new Error('OTP is required')),
             password: joi.string().required().error(new Error('Password is required')),
             confirmPassword: joi.string().valid(joi.ref('password')).required().error(err => {
                 if (err[0].value === undefined || err[0].value === '' || err[0].value === null) {
@@ -394,7 +395,25 @@ module.exports = {
             next();
         }
     },
+    changeEmail: async (req, res, next) => {
+        const userTypeVal = ["customer", "deliveryboy", "vendorowner", "admin", "vendoradmin"];
+        const rules = joi.object({
+            otp: joi.string().required().error(new Error('OTP is required')),
+            userType: joi.string().required().valid(...userTypeVal).error(new Error('Please send userType')),
+            email: joi.string().required().error(new Error('Email token required'))
+        });
 
+        const value = await rules.validate(req.body);
+        if (value.error) {
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: value.error.message
+            })
+        } else {
+            next();
+        }
+    },
     OTPVerification : async (req,res, next) => {
         const rules = joi.object({
             cid : joi.string().required().error(new Error('CustomerId is required')),

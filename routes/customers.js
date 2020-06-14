@@ -1,6 +1,7 @@
 import express from "express"
 import mongoose from "mongoose"
 import multer from "multer"
+import axios from "axios"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
 import customerValidator from "../middlewares/validators/customer/customer-validator"
@@ -547,15 +548,38 @@ customerAPI.post('/resetPassword', customerValidator.resetPassword, async(req, r
         if (data) {
             const customerIsExist = await User.findOne({ email: data.email, loginType: 'EMAIL' })
             if(customerIsExist != null){
-                customerIsExist.password = data.password
-                await customerIsExist.save()
+                //#region verifyOTP
+                const [isSuccess] = await Promise.all([
+                    axios({
+                        method : "POST",
+                        url : config.serverhost + ':' + config.port + '/api/customer/otpVerification',
+                        data : {
+                            otp : data.otp,
+                            cid : customerIsExist._id,
+                            phone : customerIsExist.phone
+                        }
+                    })
+                ])
+                //#endregion
 
-                res.send({
-                    success: true,
-                    STATUSCODE: 200,
-                    message: 'Password updated successfully',
-                    response_data: {}
-                });
+                if(isSuccess.data.success == true){
+                    customerIsExist.password = data.password
+                    await customerIsExist.save()
+    
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Password updated successfully',
+                        response_data: {}
+                    });
+                }else{
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'OTP does not match.',
+                        response_data: {}
+                    });
+                }
             }else{
                 res.send({
                     success: false,
@@ -566,6 +590,7 @@ customerAPI.post('/resetPassword', customerValidator.resetPassword, async(req, r
             }
         }
     } catch (error) {
+        throw error
         res.send({
             success: false,
             STATUSCODE: 500,
@@ -576,11 +601,135 @@ customerAPI.post('/resetPassword', customerValidator.resetPassword, async(req, r
 });
 //#endregion
 
-//#region  Resend Forgot Password OTP */
+//#region change email 
+customerAPI.post('/changeEmail', jwtTokenValidator.validateToken, customerValidator.changeEmail ,async (req, res) => {
+    try {
+        const data = req.body
+        if(data){
+            const userDetail = req.user
+
+            //#region validate OTP
+            const [isSuccess] = await Promise.all([
+                axios({
+                    method : "POST",
+                    url : config.serverhost + ':' + config.port + '/api/customer/otpVerification',
+                    data : {
+                        otp : data.otp,
+                        cid : userDetail._id,
+                        phone : userDetail.phone
+                    }
+                })
+            ])
+            //#endregion
+            if(isSuccess.data.success == true){
+                const newUpdatedEmail = data.email
+                //update user email
+                const updateData = await User.updateOne({_id : userDetail._id},{
+                    $set : {
+                        email : newUpdatedEmail
+                    }
+                })
+                console.log(updateData,'updateData')
+                if(updateData.n){
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Email updated successfully.',
+                        response_data: {}
+                    });
+                }
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 500,
+                    message: 'OTP does not match.',
+                    response_data: {}
+                });
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region  Resend OTP */
 customerAPI.post('/resendOtp', customerValidator.resendForgotPassOtp, function(req, res) {
     registerService.resendForgotPassordOtp(req.body, function(result) {
         res.status(200).send(result);
     });
+})
+//#endregion
+
+//#region Send OTP 
+customerAPI.post('/sendOTP', customerValidator.sendOTP, async (req,res) => {
+    try {
+        const data = req.body
+        if(data){
+            if(data.email != '' || data.email != undefined){
+                const isMatched = await User.findOne({email : data.email, loginType : data.loginType})
+                if(isMatched != null){
+                    let otp = generateOTP();
+                    let customer = isMatched.toObject();
+                    customer.forgotPasswordMail = otp;
+
+                    //#region save OTP to DB
+                    const addedOTPToTable = new OTPLog({
+                        userId : isMatched._id,
+                        phone : isMatched.phone,
+                        otp : otp,
+                        usedFor : data.usedFor,
+                        status : 1
+                    })
+                    const savetoDB = await addedOTPToTable.save()
+                    //#endregion
+
+                    try {
+                        mail('forgotPasswordMail')(customer.email, customer).send();
+                        res.send({
+                            success: true,
+                            STATUSCODE: 200,
+                            message: 'Please check your email. We have sent a code , please verify it.',
+                            response_data: {
+                                id : customer._id,
+                                email: customer.email,
+                                phone : customer.phone,
+                                otp: forgotPasswordOtp
+                            }
+                        });
+                    } catch (Error) {
+                        res.send('Something went wrong while sending email');
+                    }
+                }else{
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'User not found.',
+                        response_data: {}
+                    })
+                }
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 500,
+                    message: 'Email is required.',
+                    response_data: {}
+                })
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
 })
 //#endregion
 
