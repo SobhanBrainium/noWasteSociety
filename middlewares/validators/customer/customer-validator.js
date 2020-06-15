@@ -253,20 +253,20 @@ module.exports = {
             firstName: joi.string().required().error(new Error('First name is required')),
             lastName: joi.string().required().error(new Error('Last name is required')),
             gender: joi.string().required().error(new Error('Gender is required')),
-            email: joi.string().required().email().error((err) => {
-                if (err[0].value === undefined || err[0].value === '' || err[0].value === null) {
-                    return new Error('Email is required');
-                } else {
-                    return new Error('Please enter valid email');
-                }
-            }),
-            phone: joi.number().required().error((err) => {
-                if (err[0].value === undefined || err[0].value === '' || err[0].value === null) {
-                    return new Error('Phone is required');
-                } else if (typeof err[0].value === 'string') {
-                    return new Error('Please enter valid phone');
-                }
-            }),
+            // email: joi.string().required().email().error((err) => {
+            //     if (err[0].value === undefined || err[0].value === '' || err[0].value === null) {
+            //         return new Error('Email is required');
+            //     } else {
+            //         return new Error('Please enter valid email');
+            //     }
+            // }),
+            // phone: joi.number().required().error((err) => {
+            //     if (err[0].value === undefined || err[0].value === '' || err[0].value === null) {
+            //         return new Error('Phone is required');
+            //     } else if (typeof err[0].value === 'string') {
+            //         return new Error('Please enter valid phone');
+            //     }
+            // }),
             userType: joi.string().required().valid(...userTypeVal).error(new Error('Please send userType')),
             loginType: joi.string().required().error(new Error('Please send valid loginType'))
         });
@@ -400,7 +400,7 @@ module.exports = {
         const rules = joi.object({
             otp: joi.string().required().error(new Error('OTP is required')),
             userType: joi.string().required().valid(...userTypeVal).error(new Error('Please send userType')),
-            email: joi.string().required().error(new Error('Email token required'))
+            email: joi.string().required().error(new Error('Email id required'))
         });
 
         const value = await rules.validate(req.body);

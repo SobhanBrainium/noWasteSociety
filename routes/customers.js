@@ -353,13 +353,13 @@ customerAPI.post('/editProfile',jwtTokenValidator.validateToken, customerValidat
             userDetail.lastName = req.body.lastName
         }
 
-        if(req.body.email != ''){
-            userDetail.email = req.body.email
-        }
+        // if(req.body.email != ''){
+        //     userDetail.email = req.body.email
+        // }
 
-        if(req.body.phone != ''){
-            userDetail.phone = req.body.phone
-        }
+        // if(req.body.phone != ''){
+        //     userDetail.phone = req.body.phone
+        // }
 
         if(req.body.gender != ''){
             userDetail.gender = req.body.gender
@@ -601,8 +601,66 @@ customerAPI.post('/resetPassword', customerValidator.resetPassword, async(req, r
 });
 //#endregion
 
-//#region change email 
-customerAPI.post('/changeEmail', jwtTokenValidator.validateToken, customerValidator.changeEmail ,async (req, res) => {
+//#region  Change Email */
+customerAPI.post('/changeEmail', customerValidator.forgotPasswordEmail, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            const checkCustomerIsExist = await User.findOne({email: data.email, loginType: 'EMAIL'})
+            if(checkCustomerIsExist != null){
+                let forgotPasswordOtp = generateOTP();
+                let customer = checkCustomerIsExist.toObject();
+                customer.forgotPasswordOtp = forgotPasswordOtp;
+
+                //#region save OTP to DB
+                const addedOTPToTable = new OTPLog({
+                    userId : checkCustomerIsExist._id,
+                    phone : checkCustomerIsExist.phone,
+                    otp : forgotPasswordOtp,
+                    usedFor : "ChangeEmail",
+                    status : 1
+                })
+                const savetoDB = await addedOTPToTable.save()
+                //#endregion
+
+                try {
+                    mail('forgotPasswordMail')(customer.email, customer).send();
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Please check your email. We have sent a code to be used to reset email.',
+                        response_data: {
+                            id : customer._id,
+                            email: customer.email,
+                            phone : customer.phone,
+                            otp: forgotPasswordOtp
+                        }
+                    });
+                } catch (Error) {
+                    res.send('Something went wrong while sending email');
+                }
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 422,
+                    message: 'User not found',
+                    response_data: {}
+                });
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        });
+    }
+});
+//#endregion
+
+//#region Reset new email 
+customerAPI.post('/resetEmail', jwtTokenValidator.validateToken, customerValidator.changeEmail ,async (req, res) => {
     try {
         const data = req.body
         if(data){
@@ -629,8 +687,8 @@ customerAPI.post('/changeEmail', jwtTokenValidator.validateToken, customerValida
                         email : newUpdatedEmail
                     }
                 })
-                console.log(updateData,'updateData')
-                if(updateData.n){
+                
+                if(updateData){
                     res.send({
                         success: true,
                         STATUSCODE: 200,
@@ -663,73 +721,6 @@ customerAPI.post('/resendOtp', customerValidator.resendForgotPassOtp, function(r
     registerService.resendForgotPassordOtp(req.body, function(result) {
         res.status(200).send(result);
     });
-})
-//#endregion
-
-//#region Send OTP 
-customerAPI.post('/sendOTP', customerValidator.sendOTP, async (req,res) => {
-    try {
-        const data = req.body
-        if(data){
-            if(data.email != '' || data.email != undefined){
-                const isMatched = await User.findOne({email : data.email, loginType : data.loginType})
-                if(isMatched != null){
-                    let otp = generateOTP();
-                    let customer = isMatched.toObject();
-                    customer.forgotPasswordMail = otp;
-
-                    //#region save OTP to DB
-                    const addedOTPToTable = new OTPLog({
-                        userId : isMatched._id,
-                        phone : isMatched.phone,
-                        otp : otp,
-                        usedFor : data.usedFor,
-                        status : 1
-                    })
-                    const savetoDB = await addedOTPToTable.save()
-                    //#endregion
-
-                    try {
-                        mail('forgotPasswordMail')(customer.email, customer).send();
-                        res.send({
-                            success: true,
-                            STATUSCODE: 200,
-                            message: 'Please check your email. We have sent a code , please verify it.',
-                            response_data: {
-                                id : customer._id,
-                                email: customer.email,
-                                phone : customer.phone,
-                                otp: forgotPasswordOtp
-                            }
-                        });
-                    } catch (Error) {
-                        res.send('Something went wrong while sending email');
-                    }
-                }else{
-                    res.send({
-                        success: false,
-                        STATUSCODE: 500,
-                        message: 'User not found.',
-                        response_data: {}
-                    })
-                }
-            }else{
-                res.send({
-                    success: false,
-                    STATUSCODE: 500,
-                    message: 'Email is required.',
-                    response_data: {}
-                })
-            }
-        }
-    } catch (error) {
-        res.send({
-            success: false,
-            STATUSCODE: 500,
-            message: 'Internal DB error',
-            response_data: {}
-        })
-    }
 })
 //#endregion
 
