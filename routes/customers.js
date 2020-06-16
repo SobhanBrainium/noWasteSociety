@@ -5,11 +5,17 @@ import axios from "axios"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
 import customerValidator from "../middlewares/validators/customer/customer-validator"
+import restaurantValidator from "../middlewares/validators/customer/restaurant-validator"
 import jwtTokenValidator from "../middlewares/jwt-validation-middlewares"
 import userSchema from "../schema/User"
 import otpSchema from "../schema/OTPLog"
 import config from "../config"
 import userDeviceLoginSchema from "../schema/UserDeviceLogin"
+import vendorSchema from "../schema/Vendor"
+import vendorFavouriteSchema from "../schema/VendorFavourite"
+import categorySchema from "../schema/Category"
+import bannerSchema from "../schema/Banner"
+import _ from "lodash"
 
 let User = mongoose.model('User', userSchema)
 let OTPLog = mongoose.model('OTPLog', otpSchema)
@@ -45,7 +51,7 @@ let restrictImgType = function(req, file, cb) {
       }
 };
 
-const upload = multer({ storage: storage, limits: {fileSize:2000000, fileFilter:restrictImgType} }).single('image');
+const upload = multer({ storage: storage, limits: {fileSize:5242880 , fileFilter:restrictImgType} }).single('image');
 //#endregion
 
 //#region registration
@@ -440,7 +446,7 @@ customerAPI.post('/profileImageUpload',jwtTokenValidator.validateToken, async(re
                     res.send({
                         success: false,
                         STATUSCODE: 500,
-                        message: 'File size too large. Upload size maximum 2MB',
+                        message: 'File size too large. Upload size maximum 5MB',
                         response_data: {}
                     })
                 }
@@ -455,11 +461,22 @@ customerAPI.post('/profileImageUpload',jwtTokenValidator.validateToken, async(re
                 })
 
                 if(updateProfilePic){
+                    const getCurrentUser = await User.findById(req.user._id)
+                    let profileImage;
+                    if(getCurrentUser != ''){
+                        if (getCurrentUser.profileImage != '') {
+                            profileImage = `${config.serverhost}:${config.port}/img/profile-pic/` + getCurrentUser.profileImage
+                        } else {
+                            profileImage = ''
+                        }
+                    }
                     res.send({
                         success: true,
                         STATUSCODE: 200,
                         message: 'Profile pic uploaded successfully.',
-                        response_data: {}
+                        response_data: {
+                            profileImage : profileImage
+                        }
                     })
                 }else{
                     res.send({
@@ -716,11 +733,162 @@ customerAPI.post('/resetEmail', jwtTokenValidator.validateToken, customerValidat
 })
 //#endregion
 
+//#region  Home/Dashboard */
+customerAPI.post('/dashboard',jwtTokenValidator.validateToken,restaurantValidator.customerHomeValidator, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            var latt = data.latitude;
+            var long = data.longitude;
+            var userType = data.userType;
+            var responseDt = [];
+            var response_data = {};
+
+            // console.log(data);
+
+            const isVendorExist = await vendorSchema.find({
+                location: {
+                    $near: {
+                        $maxDistance: config.restaurantSearchDistance,
+                        $geometry: {
+                            type: "Point",
+                            coordinates: [long, latt]
+                        }
+                    }
+                },
+                isActive: true
+            })
+
+            if(isVendorExist.length > 0){
+                var vendorIds = [];
+                for (let restaurant of isVendorExist) {
+                    var responseObj = {};
+                    responseObj = {
+                        id: restaurant._id,
+                        name: restaurant.restaurantName,
+                        description: restaurant.description,
+                        logo: `${config.serverhost}:${config.port}/img/vendor/${restaurant.logo}`,
+                        rating: restaurant.rating
+                    };
+                    // console.log(restaurant.location.coordinates);
+
+                    //Calculate Distance
+                    var sourceLat = restaurant.location.coordinates[1];
+                    var sourceLong = restaurant.location.coordinates[0];
+
+                    var destLat = latt;
+                    var destLong = long;
+                    responseObj.distance = await getDistanceinMtr(sourceLat, sourceLong, destLat, destLong);
+                    // console.log(responseObj);
+
+                    var customerId = data.customerId;
+                    var vendorId = restaurant._id;
+                    responseObj.favorite = await vendorFavouriteSchema.countDocuments({ vendorId: vendorId, customerId: customerId });
+
+                    responseDt.push(responseObj);
+                    vendorIds.push(restaurant._id);
+                }
+
+                //Restaurant
+                response_data.vendor = responseDt;
+                //Category Data
+                response_data.category_data = await categorySchema.find({}, { "categoryName": 1, "image": 1 })
+                response_data.category_imageUrl = `${config.serverhost}:${config.port}/img/category/`;
+
+                //Banner Data
+                // console.log(vendorIds);
+                response_data.banner_data = await bannerSchema.find({
+                    vendorId: { $in: vendorIds }
+                }, { "bannerType": 1, "image": 1 })
+                response_data.banner_imageUrl = `${config.serverhost}:${config.port}/img/vendor/`;
+
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: `${isVendorExist.length} nearby restaurants found.`,
+                    response_data: response_data
+                })
+            }else{
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'No nearby restaurants found.',
+                    response_data: {}
+                })
+            }
+        } 
+    } catch (error) {
+        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
 //#region  Resend OTP */
-customerAPI.post('/resendOtp', customerValidator.resendForgotPassOtp, function(req, res) {
-    registerService.resendForgotPassordOtp(req.body, function(result) {
-        res.status(200).send(result);
-    });
+customerAPI.post('/resendOtp', customerValidator.resendForgotPassOtp, async (req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            const isValid = await User.findOne({phone : data.phone})
+            if(isValid != null){
+                //deactivate old or unused OTP
+                const checkOldAndUnUsedOTP = await OTPLog.find({phone : data.phone, status : 1})
+                if(checkOldAndUnUsedOTP.length >0){
+                    //make status = 2 for expired, deactivate or used
+                    _.forEach(checkOldAndUnUsedOTP, async (value, key) => {
+                        value.status = 2;
+                        await value.save()
+                    })
+                }
+                //end
+    
+                //generate new OTP
+                const newOTP = generateOTP()
+                const addOTPToDb = new OTPLog({
+                    userId : isValid._id,
+                    phone : isValid.phone,
+                    otp : newOTP,
+                    usedFor : data.usedFor,
+                    status : 1
+                })
+    
+                await addOTPToDb.save()
+    
+                //sent mail with new OTP
+                mail('resendOtpMail')(isValid.email, isValid).send();
+    
+                res.send({
+                    success: false,
+                    STATUSCODE: 200,
+                    message: 'Please check your email. We have sent a code.',
+                    response_data: {
+                        phone: isValid.phone,
+                        otp: newOTP
+                    }
+                })
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 500,
+                    message: 'Phone number is not registered with us.',
+                    response_data: {}
+                })
+            }
+        }
+    } catch (error) {
+        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal server error.',
+            response_data: {}
+        })
+    }
 })
 //#endregion
 
@@ -781,6 +949,33 @@ function generateOTP(){
 function generateToken(userData) {
     let payload = { subject: userData._id, user: 'CUSTOMER' };
     return jwt.sign(payload, config.secretKey, { expiresIn: '24h' })
+}
+
+//getDistance(start, end, accuracy = 1)
+function getDistanceinMtr(sourceLat, sourceLong, destinationLat, destinationLong) {
+    return new Promise(function (resolve, reject) {
+        const geolib = require('geolib');
+
+        var distanceCal = geolib.getDistance(
+            { latitude: sourceLat, longitude: sourceLong },
+            { latitude: destinationLat, longitude: destinationLong },
+            1
+        );
+
+        //  console.log(distanceCal);
+        var distanceStr = '';
+        if (Number(distanceCal) > 1000) {
+            distanceStr += Math.round((Number(distanceCal) / 1000));
+            distanceStr += ' km away'
+        } else {
+            distanceStr = distanceCal
+            distanceStr += ' mtr away'
+        }
+
+
+        return resolve(distanceStr);
+
+    });
 }
 
 module.exports = customerAPI;
