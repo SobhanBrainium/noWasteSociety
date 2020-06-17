@@ -13,12 +13,16 @@ import config from "../config"
 import userDeviceLoginSchema from "../schema/UserDeviceLogin"
 import vendorSchema from "../schema/Vendor"
 import vendorFavouriteSchema from "../schema/VendorFavourite"
+import vendorOpenCloseTime from "../schema/VendorOpenCloseTime"
+import itemSchema from "../schema/Item"
 import categorySchema from "../schema/Category"
 import bannerSchema from "../schema/Banner"
+import userAddressSchema from "../schema/Address"
 import _ from "lodash"
 
 let User = mongoose.model('User', userSchema)
 let OTPLog = mongoose.model('OTPLog', otpSchema)
+let UserAddress = mongoose.model('UserAddress', userAddressSchema)
 
 const mail = require('../modules/sendEmail');
 
@@ -733,6 +737,111 @@ customerAPI.post('/resetEmail', jwtTokenValidator.validateToken, customerValidat
 })
 //#endregion
 
+//#region Customer Address
+customerAPI.post('/addAddress', jwtTokenValidator.validateToken, customerValidator.addAddress, async (req, res) => {    
+    try {
+        let data = req.body
+        if(data){
+
+            data = {
+                ...data,
+                userId : req.user._id
+            }
+
+            const addAddress = await UserAddress.create(data)
+
+            if(addAddress){
+                //find all address
+                const getAddress = await UserAddress.find({userId : req.user._id}).sort({_id : -1})
+                if(getAddress.length >0){
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Address added successfully.',
+                        response_data: getAddress
+                    })
+                }else{
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'No address found.',
+                        response_data: []
+                    })
+                }
+                
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 400,
+                    message: 'Address added failed.',
+                    response_data: []
+                })
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region Customer delete Address
+customerAPI.post('/deleteCustomerAddress', jwtTokenValidator.validateToken, customerValidator.deleteCustomerAddress, async (req, res) => {    
+    try {
+        let addressId = req.body.addressId
+        const isExist = await UserAddress.findOne({userId : req.user._id , _id : addressId})
+        if(isExist){
+            const deleteAddress = await UserAddress.deleteOne({userId : req.user._id , _id : addressId})
+            if(deleteAddress){
+                //find address after delete one
+                const getAddress = await UserAddress.find({userId : req.user._id})
+                if(getAddress.length > 0){
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Address deleted successfully.',
+                        response_data: getAddress
+                    })
+                }else{
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Address deleted successfully.',
+                        response_data: []
+                    })
+                }
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 400,
+                    message: 'Something went wrong.',
+                    response_data: []
+                })
+            }
+        }else{
+            res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'No address found.',
+                response_data: []
+            })
+        }
+    } catch (error) {
+        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: []
+        })
+    }
+})
+//#endregion
+
 //#region  Home/Dashboard */
 customerAPI.post('/dashboard',jwtTokenValidator.validateToken,restaurantValidator.customerHomeValidator, async(req, res) => {
     try {
@@ -767,7 +876,7 @@ customerAPI.post('/dashboard',jwtTokenValidator.validateToken,restaurantValidato
                         id: restaurant._id,
                         name: restaurant.restaurantName,
                         description: restaurant.description,
-                        logo: `${config.serverhost}:${config.port}/img/vendor/${restaurant.logo}`,
+                        logo: `${config.serverhost}:${config.port}/img/vendor/${restaurant.licenceImage}`,
                         rating: restaurant.rating
                     };
                     // console.log(restaurant.location.coordinates);
@@ -823,6 +932,268 @@ customerAPI.post('/dashboard',jwtTokenValidator.validateToken,restaurantValidato
             success: false,
             STATUSCODE: 500,
             message: 'Internal DB error',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region restaurant details
+customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurantValidator.restaurantDetailsValidator, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+
+            const vendorId = data.vendorId;
+            const categoryId = data.categoryId;
+            const responseDt = {};
+            const latt = data.latitude;
+            const long = data.longitude;
+            const restaurantInformation = data.restaurantInfo;
+
+            if (restaurantInformation == 'YES') {
+
+                vendorSchema.findOne({
+                    location: {
+                        $near: {
+                            $maxDistance: config.restaurantSearchDistance,
+                            $geometry: {
+                                type: "Point",
+                                coordinates: [long, latt]
+                            }
+                        }
+                    },
+                    _id: vendorId,
+                    isActive: true
+                })
+                    .populate('vendorOpenCloseTime')
+                    .exec(async function (err, results) {
+                        if (err) {
+                            console.log(err);
+                            res.send({
+                                success: false,
+                                STATUSCODE: 500,
+                                message: 'Internal error',
+                                response_data: {}
+                            });
+                        } else {
+                            if (results != null) {
+                                var restaurantInfo = {
+                                    name: results.restaurantName,
+                                    description: results.description,
+                                    rating: results.rating,
+                                    logo: `${config.serverhost}:${config.port}/img/vendor/${results.logo}`,
+                                    banner: `${config.serverhost}:${config.port}/img/vendor/${results.banner}`
+                                };
+
+                                //Calculate Distance
+                                var sourceLat = results.location.coordinates[1];
+                                var sourceLong = results.location.coordinates[0];
+
+                                var destLat = latt;
+                                var destLong = long;
+                                restaurantInfo.distance = await getDistanceinMtr(sourceLat, sourceLong, destLat, destLong);
+
+                                //Open time
+                                var vendorTimeArr = [];
+                                var openTimeArr = [];
+                                var closeTimeArr = [];
+                                if (results.vendorOpenCloseTime.length > 0) {
+                                    if (results.vendorOpenCloseTime.length == 7) {
+                                        var everydayCheck = 1;
+                                    } else {
+                                        var everydayCheck = 0;
+                                    }
+
+
+                                    for (let vendorTime of results.vendorOpenCloseTime) {
+                                        var vendorTimeObj = {};
+                                      //  console.log(vendorTime);
+                                        if (everydayCheck == 1) {
+
+                                            openTimeArr.push(vendorTime.openTime);
+                                            closeTimeArr.push(vendorTime.closeTime);
+                                        }
+                                        //OPEN TIME CALCULATION
+                                        var openTimeAMPM = '';
+                                        var openTimeHours = '';
+                                        var openTimeMin = '';
+                                        if (vendorTime.openTime < 720) {
+                                            var num = vendorTime.openTime;
+                                            openTimeAMPM = 'am';
+                                        } else {
+                                            var num = (vendorTime.openTime - 720);
+                                            openTimeAMPM = 'pm';
+                                        }
+
+                                        var openHours = (num / 60);
+                                        var openrhours = Math.floor(openHours);
+                                        var openminutes = (openHours - openrhours) * 60;
+                                        var openrminutes = Math.round(openminutes);
+
+                                        openTimeHours = openrhours;
+                                        openTimeMin = openrminutes;
+
+                                        //CLOSE TIME CALCULATION
+                                        var closeTimeAMPM = '';
+                                        var closeTimeHours = '';
+                                        var closeTimeMin = '';
+                                        if (vendorTime.closeTime < 720) {
+                                            var num = vendorTime.closeTime;
+                                            closeTimeAMPM = 'am';
+                                        } else {
+                                            var num = (vendorTime.closeTime - 720);
+                                            closeTimeAMPM = 'pm';
+                                        }
+
+                                        var closeHours = (num / 60);
+                                        var closerhours = Math.floor(closeHours);
+                                        var closeminutes = (closeHours - closerhours) * 60;
+                                        var closerminutes = Math.round(closeminutes);
+
+                                        closeTimeHours = closerhours;
+                                        closeTimeMin = closerminutes;
+
+                                        vendorTimeObj.day = vendorTime.day;
+                                        vendorTimeObj.openTime = `${openTimeHours}:${openTimeMin} ${openTimeAMPM}`
+                                        vendorTimeObj.closeTime = `${closeTimeHours}:${closeTimeMin} ${closeTimeAMPM}`
+
+                                        vendorTimeArr.push(vendorTimeObj);
+                                    }
+                                }
+
+                                responseDt.restaurant = restaurantInfo;
+
+                                //Everyday Check
+                                if (everydayCheck == 1) {
+                                    // console.log(openTimeArr);
+                                    // console.log(closeTimeArr);
+                                    var uniqueOpen = openTimeArr.filter(onlyUnique);
+                                    var uniqueClose = closeTimeArr.filter(onlyUnique);
+                                    if ((uniqueOpen.length == 1) && (uniqueClose.length == 1)) {
+                                        responseDt.vendorTimeEveryday = 1;
+                                        responseDt.vendorTimeEverydayStart = uniqueOpen[0];
+                                        responseDt.vendorTimeEverydayClose = uniqueClose[0];
+                                    }
+                                } else {
+                                    responseDt.vendorTimeEveryday = 0;
+                                }
+
+                                responseDt.vendorTime = vendorTimeArr;
+
+
+                                //Get Item Details
+                                var restaurantItemDetails = await restaurantCategoryItem(vendorId, categoryId);
+
+                                if (restaurantItemDetails != 'err') {
+                                    responseDt.catitem = restaurantItemDetails;
+
+                                    res.send({
+                                        success: true,
+                                        STATUSCODE: 200,
+                                        message: 'Restaurant details.',
+                                        response_data: responseDt
+                                    });
+
+                                    //  console.log(responseDt);
+                                } else {
+                                    res.send({
+                                        success: false,
+                                        STATUSCODE: 500,
+                                        message: 'Internal DB error.',
+                                        response_data: {}
+                                    });
+                                }
+
+                            } else {
+                                res.send({
+                                    success: false,
+                                    STATUSCODE: 400,
+                                    message: 'Something went wrong.',
+                                    response_data: {}
+                                });
+                            }
+                        }
+                        //console.log(results);
+                    });
+
+            } else {
+
+                //Get Item Details
+                restaurantCategoryItem(vendorId, categoryId)
+                    .then(function (restaurantItemDetails) {
+
+                        if (restaurantItemDetails != 'err') {
+                            responseDt.catitem = restaurantItemDetails;
+
+                            res.send({
+                                success: true,
+                                STATUSCODE: 200,
+                                message: 'Restaurant details.',
+                                response_data: responseDt
+                            });
+
+                            //  console.log(responseDt);
+                        } else {
+                            res.send({
+                                success: false,
+                                STATUSCODE: 500,
+                                message: 'Internal DB error.',
+                                response_data: {}
+                            });
+                        }
+                    }).catch(function (err) {
+                        console.log(err);
+                        res.send({
+                            success: false,
+                            STATUSCODE: 500,
+                            message: 'Internal DB error.',
+                            response_data: {}
+                        });
+                    });
+            }
+
+
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region Logout */
+customerAPI.post('/logout',jwtTokenValidator.validateToken, customerValidator.logout, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            const loginId = data.loginId;
+            const deleteDeviceLogin = await userDeviceLoginSchema.deleteOne({ _id: loginId })
+            if(deleteDeviceLogin){
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'User logged out Successfully',
+                    response_data: {}
+                })
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 400,
+                    message: 'Something went wrong.',
+                    response_data: {}
+                })
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
             response_data: {}
         });
     }
@@ -976,6 +1347,97 @@ function getDistanceinMtr(sourceLat, sourceLong, destinationLat, destinationLong
         return resolve(distanceStr);
 
     });
+}
+
+function restaurantCategoryItem(vendorId, categoryId) {
+    return new Promise(function (resolve, reject) {
+        var resp = {};
+
+        var itemSerachParam = {
+            vendorId: vendorId,
+            isActive: true
+        }
+
+        if (categoryId != '') {
+            itemSerachParam.categoryId = categoryId;
+            var catId = 1;
+        } else {
+            var catId = 0;
+        }
+        itemSchema.find(itemSerachParam)
+            .sort({ createdAt: -1 })
+            .exec(async function (err, results) {
+                if (err) {
+                    console.log(err);
+                    return resolve('err');
+                } else {
+                    if (catId == 1) { // Category with Items Data
+                        if (results.length > 0) {
+                            var itemsArr = [];
+                            for (let itemsVal of results) {
+                                var itemsObj = {};
+                                itemsObj.itemId = itemsVal._id
+                                itemsObj.itemName = itemsVal.itemName
+                                itemsObj.type = itemsVal.type
+                                itemsObj.price = itemsVal.price
+                                itemsObj.description = itemsVal.description
+                                itemsObj.menuImage = `${config.serverhost}:${config.port}/img/vendor/${itemsVal.menuImage}`;
+
+                                itemsArr.push(itemsObj);
+                            }
+                        }
+                        resp.item = itemsArr;
+                        // console.log(itemsArr);
+                    } else {
+                        if (results.length > 0) {
+                            var categoryId = results[0].categoryId;
+                            var itemsArr = [];
+                            var categoryIdArr = [];
+                            for (let itemsVal of results) {
+
+                                if (itemsVal.categoryId.toString() == categoryId.toString()) {
+                                    var itemsObj = {};
+                                    itemsObj.itemId = itemsVal._id
+                                    itemsObj.categoryId = itemsVal.categoryId
+                                    itemsObj.itemName = itemsVal.itemName
+                                    itemsObj.type = itemsVal.type
+                                    itemsObj.price = itemsVal.price
+                                    itemsObj.description = itemsVal.description
+                                    itemsObj.menuImage = `${config.serverhost}:${config.port}/img/vendor/${itemsVal.menuImage}`;
+
+                                    itemsArr.push(itemsObj);
+                                }
+                                if (!categoryIdArr.includes(itemsVal.categoryId)) {
+                                    // console.log(itemsVal.categoryId); 
+                                    categoryIdArr.push(itemsVal.categoryId);
+                                    // console.log(categoryIdArr);
+                                }
+
+                            }
+                        }
+                        resp.item = itemsArr;
+
+                        // console.log(categoryIdArr);
+
+                        //Category Data
+                        var categoryData = {};
+                        categoryData.data = await categorySchema.find({
+                            _id: { $in: categoryIdArr }
+                        }, { "categoryName": 1, "image": 1 });
+                        // console.log(categoryData.data);
+                        categoryData.imageUrl = `${config.serverhost}:${config.port}/img/category/`;
+
+                        // console.log(categoryData);
+                        resp.category = categoryData;
+                    }
+                    return resolve(resp);
+                }
+            })
+    });
+}
+
+function onlyUnique(value, index, self) {
+    return self.indexOf(value) === index;
 }
 
 module.exports = customerAPI;

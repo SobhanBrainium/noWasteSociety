@@ -31,7 +31,7 @@ module.exports = {
         }
     },
     restaurantDetailsValidator: async (req, res, next) => {
-        var userType = ['CUSTOMER','GUEST']
+        var userType = ['customer','guest']
         const rules = joi.object({
             customerId: joi.string().allow('').optional(),
             categoryId: joi.string().allow('').optional(),

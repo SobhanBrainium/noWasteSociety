@@ -49,5 +49,5 @@ module.exports = {
     limit: 10,
     adminEmailAddress:'ipsita12.amstech@gmail.com',
     beaconTimeDiff: '600000',
-    restaurantSearchDistance: 10000,
+    restaurantSearchDistance: 5000,
 }
