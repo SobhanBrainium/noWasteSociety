@@ -435,10 +435,34 @@ module.exports = {
     addAddress : async (req, res, next) => {
         const rules = joi.object({
             addressType : joi.string().required().error(new Error('addressType is required')),
+            isDefault : joi.string().required().error(new Error('isDefault is required')),
             flatOrHouseOrBuildingOrCompany: joi.string().required().error(new Error('flatOrHouseOrBuildingOrCompany is required')),
             areaOrColonyOrStreetOrSector: joi.string().required().error(new Error('areaOrColonyOrStreetOrSector is required')),
             pinCode: joi.string().required().error(new Error('pinCode is required')),
             townOrCity: joi.string().required().error(new Error('townOrCity is required')),
+            landmark: joi.string().allow('').optional(),
+        });
+
+        const value = await rules.validate(req.body);
+        if (value.error) {
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: value.error.message
+            })
+        } else {
+            next();
+        }
+    },
+    editAddress : async (req, res, next) => {
+        const rules = joi.object({
+            addressId : joi.string().required().error(new Error('addressId is required')),
+            addressType : joi.string().optional(),
+            isDefault : joi.string().optional(),
+            flatOrHouseOrBuildingOrCompany: joi.string().optional(),
+            areaOrColonyOrStreetOrSector: joi.string().optional(),
+            pinCode: joi.string().optional(),
+            townOrCity: joi.string().optional(),
             landmark: joi.string().allow('').optional(),
         });
 

@@ -737,7 +737,7 @@ customerAPI.post('/resetEmail', jwtTokenValidator.validateToken, customerValidat
 })
 //#endregion
 
-//#region Customer Address
+//#region  Customer add Address
 customerAPI.post('/addAddress', jwtTokenValidator.validateToken, customerValidator.addAddress, async (req, res) => {    
     try {
         let data = req.body
@@ -747,7 +747,18 @@ customerAPI.post('/addAddress', jwtTokenValidator.validateToken, customerValidat
                 ...data,
                 userId : req.user._id
             }
+            console.log(data,'data')
 
+            if(data.isDefault == 1){
+                //#region first find is any address default or not
+                const isDefaultAddress = await UserAddress.findOne({userId : req.user._id, isDefault : data.isDefault}).sort({_id : -1})
+                if(isDefaultAddress){
+                    isDefaultAddress.isDefault = false
+                    await isDefaultAddress.save();
+                }
+                //#region 
+            }
+            
             const addAddress = await UserAddress.create(data)
 
             if(addAddress){
@@ -778,6 +789,35 @@ customerAPI.post('/addAddress', jwtTokenValidator.validateToken, customerValidat
                 })
             }
         }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region Customer Address List
+customerAPI.get('/addressList', jwtTokenValidator.validateToken, async (req, res) => {    
+    try {
+        const userAddressList = await UserAddress.find({userId : req.user._id}).sort({_id : -1})
+        if(userAddressList.length > 0){
+            res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Address list fetch successfully.',
+                response_data: userAddressList
+            })
+        }
+        res.send({
+            success: true,
+            STATUSCODE: 200,
+            message: 'No address found.',
+            response_data: []
+        })
     } catch (error) {
         res.send({
             success: false,
@@ -837,6 +877,106 @@ customerAPI.post('/deleteCustomerAddress', jwtTokenValidator.validateToken, cust
             STATUSCODE: 500,
             message: 'Internal DB error',
             response_data: []
+        })
+    }
+})
+//#endregion
+
+//#region  Customer edit Address
+customerAPI.post('/editAddress', jwtTokenValidator.validateToken, customerValidator.editAddress, async (req, res) => {    
+    try {
+        let data = req.body
+        if(data){
+            //check address is exist or not
+            const isExist = await UserAddress.findOne({userId : req.user._id, _id : data.addressId})
+            if(isExist){
+                const obj = {}
+
+                if(data.addressType) {
+                    obj.addressType = data.addressType
+                }
+
+                if(data.flatOrHouseOrBuildingOrCompany) {
+                    obj.flatOrHouseOrBuildingOrCompany = data.flatOrHouseOrBuildingOrCompany
+                }
+
+                if(data.areaOrColonyOrStreetOrSector) {
+                    obj.areaOrColonyOrStreetOrSector = data.areaOrColonyOrStreetOrSector
+                }
+
+                if(data.pinCode) {
+                    obj.pinCode = data.pinCode
+                }
+
+                if(data.townOrCity) {
+                    obj.townOrCity = data.townOrCity
+                }
+
+                if(data.landmark) {
+                    obj.landmark = data.landmark
+                }
+
+                if(data.isDefault){
+                    if(data.isDefault !== isExist.isDefault){
+                        //#region first find is any address default or not
+                        const isDefaultAddress = await UserAddress.findOne({userId : req.user._id, isDefault : data.isDefault}).sort({_id : -1})
+                        if(isDefaultAddress){
+                            isDefaultAddress.isDefault = false
+                            await isDefaultAddress.save();
+                        }
+                        //#region 
+
+                        obj.isDefault = data.isDefault
+                    }
+                }
+
+                //= update address
+                const updateAddress = await UserAddress.updateOne({userId : req.user._id, _id : data.addressId},{
+                    $set : obj
+                })
+
+                if(updateAddress){
+                    //find all address
+                    const getAddress = await UserAddress.find({userId : req.user._id}).sort({_id : -1})
+                    if(getAddress.length >0){
+                        res.send({
+                            success: true,
+                            STATUSCODE: 200,
+                            message: 'Address updated successfully.',
+                            response_data: getAddress
+                        })
+                    }else{
+                        res.send({
+                            success: true,
+                            STATUSCODE: 200,
+                            message: 'No address found.',
+                            response_data: []
+                        })
+                    }
+                    
+                }else{
+                    res.send({
+                        success: false,
+                        STATUSCODE: 400,
+                        message: 'Address updated failed.',
+                        response_data: []
+                    })
+                }
+            }
+            res.send({
+                success: false,
+                STATUSCODE: 400,
+                message: 'No address found with this id.',
+                response_data: {}
+            })
+        }
+    } catch (error) {
+        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
         })
     }
 })
