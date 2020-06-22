@@ -12,6 +12,8 @@ import otpSchema from "../schema/OTPLog"
 import config from "../config"
 import userDeviceLoginSchema from "../schema/UserDeviceLogin"
 import vendorSchema from "../schema/Vendor"
+import orderSchema from "../schema/Order"
+import OrderDetailSchema from "../schema/OrderDetail"
 import vendorFavouriteSchema from "../schema/VendorFavourite"
 import vendorOpenCloseTime from "../schema/VendorOpenCloseTime"
 import itemSchema from "../schema/Item"
@@ -1306,6 +1308,375 @@ customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurant
 })
 //#endregion
 
+//#region  Order Submit */
+customerAPI.post('/postOrder',jwtTokenValidator.validateToken,restaurantValidator.postOrderValidator, async (req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+   
+            var vendorId = data.vendorId;
+            var items = data.items;
+            var latt = data.latitude;
+            var long = data.longitude;
+            var appType = data.appType;
+
+            var checkJson = false
+
+            if(appType == 'ANDROID') {
+                var checkJson = isJson(items);
+            } else {
+                checkJson = true;
+            }
+            
+
+            // console.log(checkJson);
+            // console.log(appType);
+            // console.log(items);
+
+            var checkJson = true;
+
+            if (checkJson == true) {
+
+                //  var itemObj = JSON.parse(items);
+
+                if(appType == 'ANDROID') {
+                    var itemObj = JSON.parse(items);
+                } else {
+                    var itemObj = items;
+                }
+
+                
+                // console.log(itemObj);
+                var errorCheck = 0;
+                var orderDetailsItm = [];
+                var itemsIdArr = [];
+                console.log(itemObj,'itemObj')
+                for (let item of itemObj) {
+                    console.log("jello")
+                    var orderDetailsItmObj = {};
+                    if ((item.name == undefined) || (item.name == '') || (item.quantity == undefined) || (item.quantity == '') || (item.price == undefined) || (item.price == '') || (item.itemId == undefined) || (item.itemId == '')) {
+                        errorCheck++;
+                    } else {
+                        //Items Check
+                        itemsIdArr.push(item.itemId);
+
+                        orderDetailsItmObj.item = item.name;
+                        orderDetailsItmObj.quantity = item.quantity;
+                        orderDetailsItmObj.itemPrice = item.price;
+                        orderDetailsItmObj.totalPrice = (Number(item.price) * Number(item.quantity));
+                        orderDetailsItm.push(orderDetailsItmObj);
+                    }
+                    // console.log(item.name);
+                    // console.log(item.quantity);
+                    // console.log(item.price);
+                }
+
+                if (errorCheck == 0) {
+
+                    vendorSchema.findOne({
+                        _id: vendorId,
+                        location: {
+                            $near: {
+                                $maxDistance: config.restaurantSearchDistance,
+                                $geometry: {
+                                    type: "Point",
+                                    coordinates: [long, latt]
+                                }
+                            }
+                        },
+                        isActive: true
+                    })
+                        .exec(async function (err, results) {
+                            if (err) {
+                                res.send({
+                                    success: false,
+                                    STATUSCODE: 500,
+                                    message: 'Internal DB error',
+                                    response_data: {}
+                                });
+                            } else {
+                                if (results != null) {
+
+                                    
+                                    //console.log(data);
+                                    // console.log(itemsIdArr);
+                                    var itemsCheck = await itemSchema.find({ _id: { $in: itemsIdArr } })
+                                    var waitingTimeAll = 0;
+
+                                    if (itemsCheck.length > 0) {
+                                        for (let item of itemsCheck) {
+                                            waitingTimeAll += Number(item.waitingTime);
+                                        }
+                                    }
+                                    var orderVendorId = data.vendorId;
+
+                                    var orderNo = generateOrder();
+
+                                    var ordersObj = {
+                                        vendorId: data.vendorId,
+                                        orderNo: orderNo,
+                                        orderTime: new Date(),
+                                        estimatedDeliveryTime: waitingTimeAll,
+
+                                        addressId : data.addressId,
+
+                                        customerId: data.customerId,
+                                        orderType: data.orderType,
+                                        deliveryPreference: data.deliveryPreference,
+                                        orderStatus: 'NEW',
+                                        price: data.price,
+                                        discount: data.discount,
+                                        finalPrice: data.finalPrice,
+                                        specialInstruction: data.specialInstruction,
+                                        promocodeId: data.promocodeId
+                                    }
+
+                                    // console.log(ordersObj);
+
+
+
+                                    //  console.log(orderDetailsItm);
+
+                                    new orderSchema(ordersObj).save(async function (err, result) {
+                                        if (err) {
+                                            console.log(err);
+                                            res.send({
+                                                success: false,
+                                                STATUSCODE: 500,
+                                                message: 'Internal DB error',
+                                                response_data: {}
+                                            });
+                                        } else {
+                                            var orderId = result._id;
+                                            var orderDetailsArr = [];
+                                            var orderIdsArr = [];
+                                            var orderDetailsCount = orderDetailsItm.length;
+                                            var c = 0;
+                                            for (let orderdetails of orderDetailsItm) {
+                                                c++;
+                                                var orderEnter = orderdetails;
+                                                orderEnter.orderId = orderId;
+
+                                                // console.log(orderEnter);
+
+                                                orderDetailsArr.push(orderEnter);
+
+                                                new OrderDetailSchema(orderEnter).save(async function (err, result) {
+                                                    orderIdsArr.push(result._id);
+
+
+
+                                                    orderSchema.update({ _id: orderId }, {
+                                                        $set: { orderDetails: orderIdsArr }
+                                                    }, function (err, res) {
+                                                        if (err) {
+                                                            console.log(err);
+                                                        } else {
+                                                            // console.log(res);
+                                                        }
+                                                    });
+                                                })
+                                            }
+                                            //SEND PUSH MESSAGE
+                                            // var pushMessage = 'You have received a new order'
+                                            // var receiverId = orderVendorId;
+                                            // sendPush(receiverId, pushMessage,orderNo);
+
+                                            //find new order detail
+                                            const newOrder = await orderSchema.findById(orderId).populate('addressId')
+                                            //end
+
+                                            var respOrder = {};
+                                            respOrder.order = newOrder;
+                                            respOrder.orderDetails = orderDetailsArr;
+                                            res.send({
+                                                success: true,
+                                                STATUSCODE: 200,
+                                                message: 'Order Updated Successfully.',
+                                                response_data: respOrder
+                                            });
+
+                                        }
+                                    });
+
+                                } else {
+                                    res.send({
+                                        success: false,
+                                        STATUSCODE: 500,
+                                        message: 'Something went wrong.',
+                                        response_data: {}
+                                    });
+                                }
+                            }
+
+                        });
+
+
+
+                } else {
+                    console.log('Invalid items object format');
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'Validation failed.',
+                        response_data: {}
+                    });
+                }
+
+            } else {
+                console.log('Invalid items object format');
+                res.send({
+                    success: false,
+                    STATUSCODE: 500,
+                    message: 'Validation failed.',
+                    response_data: {}
+                });
+            }
+            return;
+   
+   
+        }
+    } catch (error) {
+        
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region  Order List */
+customerAPI.post('/orderList',jwtTokenValidator.validateToken,restaurantValidator.customerOrderListValidator, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            console.log(data);
+            var customerId = data.customerId;
+            var orderStatus = data.orderStatus;
+            var responseOrder = {};
+
+            var findCond = { customerId: customerId };
+            if(orderStatus == 'ONGOING') {
+               var orCond = [ {'orderStatus':'NEW'}, {'orderStatus':'ACCEPTED'}, {'orderStatus':'DELAYED'}, {'orderStatus':'DELIVERED'}, {'orderStatus':'MODIFIED'}, {'orderStatus':'READY'}]
+            } else {
+                var orCond = [ {'orderStatus':'COMPLETED'}, {'orderStatus':'CANCELLED'}]
+            }
+
+            orderSchema
+                .find(findCond)
+                .or(orCond)
+                .sort({ orderTime: 'desc' })
+                .populate('orderDetails')
+                .then(async function (orders) {
+                    var allorders = [];
+                    if(orders.length > 0) {
+                        for(let order of orders) {
+                            var orderlst = {};
+                            orderlst.orderId = order._id;
+                            orderlst.finalPrice = order.finalPrice;
+                            orderlst.estimatedDeliveryTime = order.estimatedDeliveryTime;
+                            orderlst.orderStatus = order.orderStatus;
+                            orderlst.orderTime = order.orderTime;
+
+                            //Vendor Info
+                            var vendorInfo = await vendorSchema.findOne({_id: order.vendorId});
+                            orderlst.restaurantName = vendorInfo.restaurantName;
+                            orderlst.description = vendorInfo.description;
+                            orderlst.restaurantImage = `${config.serverhost}:${config.port}/img/vendor/${vendorInfo.banner}`;
+
+                            allorders.push(orderlst);
+                        }
+                    }
+                    responseOrder.orderList = allorders;
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'order list.',
+                        response_data: responseOrder
+                    })
+                    
+                })
+                .catch(function(err) {
+                    console.log(err);
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'Something went wrong.',
+                        response_data: {}
+                    })
+                })
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal server error.',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region  Order Details */
+customerAPI.post('/orderDetails',jwtTokenValidator.validateToken,restaurantValidator.customerOrderDetailsValidator, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            var orderId = data.orderId;
+            var responseOrder = {}; 
+
+            orderSchema
+                .findOne({_id: orderId})
+                .populate('addressId')
+                .populate('orderDetails')
+                .then(async function (order) {
+                    // console.log(order);
+
+                    var orderResp = {};
+
+                    orderResp.orderNo = order.orderNo;
+                    orderResp.orderTime = order.orderTime;
+                    orderResp.finalPrice = order.finalPrice;
+
+                    //Vendor Info
+                    var vendorInfo = await vendorSchema.findOne({_id: order.vendorId});
+                    orderResp.restaurantName = vendorInfo.restaurantName;
+                    orderResp.restaurantImage = `${config.serverhost}:${config.port}/img/vendor/${vendorInfo.banner}`;
+                    orderResp.address = order.addressId;
+                    orderResp.orderDetails = order.orderDetails;
+
+
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Order Details.',
+                        response_data: orderResp
+                    })
+                })
+                .catch(function(err) {
+                    console.log(err);
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'Something went wrong.',
+                        response_data: {}
+                    })
+                });
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal server error.',
+            response_data: {}
+        })
+    }
+});
+//#endregion
+
 //#region Logout */
 customerAPI.post('/logout',jwtTokenValidator.validateToken, customerValidator.logout, async(req, res) => {
     try {
@@ -1578,6 +1949,21 @@ function restaurantCategoryItem(vendorId, categoryId) {
 
 function onlyUnique(value, index, self) {
     return self.indexOf(value) === index;
+}
+
+function isJson(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
+function generateOrder() {
+
+    var orderNo = `NWS${Math.floor((Math.random() * 100000))}`
+    return orderNo;
 }
 
 module.exports = customerAPI;

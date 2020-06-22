@@ -1,5 +1,8 @@
 var mongoose = require('mongoose');
 
+import userAddressSchema from "../schema/Address"
+let UserAddress = mongoose.model('UserAddress', userAddressSchema)
+
 var orderSchema = new mongoose.Schema({
     vendorId: { type: mongoose.Schema.Types.ObjectId, required: true},
     orderNo: {type: String, required: true, unique: true},
@@ -9,15 +12,7 @@ var orderSchema = new mongoose.Schema({
     foodReadyTime: {type: Date},
     actualDeliveryTime: {type: Date},
     
-    deliveryPincode: { type: String, required: true},
-    deliveryHouseNo: { type: String, required: true},
-    deliveryRoad: { type: String, required: true},
-    deliveryCountryCode: { type: String, required: true},
-    deliveryPhone: { type: String, required: true},
-    deliveryState: { type: String , required: true},
-    deliveryCity: { type: String, required: true },
-    deliveryLandmark: { type: String},
-    deliveryName: { type: String, required: true },
+    addressId : {type : mongoose.Schema.Types.ObjectId, required: true, ref : UserAddress},
 
     customerId: { type: mongoose.Schema.Types.ObjectId, required: true,default: '5e68af6f7a611343eae69b9a' },
     orderType: { type: String, required: true, enum: ['NORMAL','SCHEDULE'],default: 'NORMAL' },

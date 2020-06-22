@@ -63,22 +63,15 @@ module.exports = {
         }
     },
     postOrderValidator: async (req, res, next) => {
-        var userType = ['CUSTOMER','GUEST']
+        var userType = ['customer','GUEST']
         const appTypeVal = ["ANDROID", "IOS", "BROWSER"];
         const deliveryPreferenc = ["DELIVERY", "PICKUP"];
         const rules = joi.object({
             customerId: joi.string().allow('').optional(),
             appType: joi.string().required().valid(...appTypeVal).error(new Error('App type required')),
             vendorId: joi.string().required().error(new Error('vendor Id is required')),
-            deliveryPincode: joi.string().required().error(new Error('Delivery Pincode is required')),
-            deliveryHouseNo: joi.string().required().error(new Error('House no or building name is required')),
-            deliveryRoad: joi.string().required().error(new Error('Road name, area, colony is required')),
-            deliveryCountryCode: joi.string().required().error(new Error('Country code is required')),
-            deliveryPhone: joi.string().required().error(new Error('Delivery phone no required')),
-            deliveryState: joi.string().required().error(new Error('Delivery state is required')),
-            deliveryCity: joi.string().required().error(new Error('Delivery city is required')),
-            deliveryLandmark: joi.string().allow('').optional(),
-            deliveryName: joi.string().required().error(new Error('Delivery name required')),
+            addressId: joi.string().required().error(new Error('Delivery address is required')),
+            
             userType: joi.string().valid(...userType).error(new Error('Please send userType')),
             deliveryPreference : joi.string().valid(...deliveryPreferenc).required().error(new Error('Please send deliveryPreference')),
             orderType: joi.string().required().error(new Error('Please send orderType')),
@@ -114,7 +107,7 @@ module.exports = {
         }
     },
     customerOrderListValidator: async (req, res, next) => {
-        var userType = ['CUSTOMER','GUEST']
+        var userType = ['customer','GUEST']
         var orderStatus = ['ONGOING','PAST']
         const rules = joi.object({
             customerId: joi.string().allow('').optional(),
@@ -130,7 +123,7 @@ module.exports = {
                 message: value.error.message
             })
         } else {
-            if((userType == 'CUSTOMER') && (customerId == '')) {
+            if((userType == 'customer') && (customerId == '')) {
                 res.status(422).json({
                     success: false,
                     STATUSCODE: 422,
@@ -143,7 +136,7 @@ module.exports = {
         }
     },
     customerOrderDetailsValidator: async (req, res, next) => {
-        var userType = ['CUSTOMER','GUEST']
+        var userType = ['customer','GUEST']
         const rules = joi.object({
             customerId: joi.string().allow('').optional(),
             userType: joi.string().valid(...userType).error(new Error('Please send userType')),
@@ -158,7 +151,7 @@ module.exports = {
                 message: value.error.message
             })
         } else {
-            if((userType == 'CUSTOMER') && (customerId == '')) {
+            if((userType == 'customer') && (customerId == '')) {
                 res.status(422).json({
                     success: false,
                     STATUSCODE: 422,
