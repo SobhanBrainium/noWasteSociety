@@ -1018,7 +1018,7 @@ customerAPI.post('/dashboard',jwtTokenValidator.validateToken,restaurantValidato
                         id: restaurant._id,
                         name: restaurant.restaurantName,
                         description: restaurant.description,
-                        logo: `${config.serverhost}:${config.port}/img/vendor/${restaurant.licenceImage}`,
+                        logo: `${config.serverhost}:${config.port}/img/vendor/${restaurant.logo}`,
                         rating: restaurant.rating
                     };
                     // console.log(restaurant.location.coordinates);
@@ -1111,7 +1111,7 @@ customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurant
                     .populate('vendorOpenCloseTime')
                     .exec(async function (err, results) {
                         if (err) {
-                            console.log(err);
+                            // console.log(err);
                             res.send({
                                 success: false,
                                 STATUSCODE: 500,
@@ -1892,7 +1892,7 @@ function restaurantCategoryItem(vendorId, categoryId) {
                                 itemsObj.type = itemsVal.type
                                 itemsObj.price = itemsVal.price
                                 itemsObj.description = itemsVal.description
-                                itemsObj.menuImage = `${config.serverhost}:${config.port}/img/vendor/${itemsVal.menuImage}`;
+                                itemsObj.menuImage = `${config.serverhost}:${config.port}/img/item/${itemsVal.menuImage}`;
 
                                 itemsArr.push(itemsObj);
                             }
