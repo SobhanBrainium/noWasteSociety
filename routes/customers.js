@@ -20,11 +20,13 @@ import itemSchema from "../schema/Item"
 import categorySchema from "../schema/Category"
 import bannerSchema from "../schema/Banner"
 import userAddressSchema from "../schema/Address"
+import cardSchema from "../schema/Card"
 import _ from "lodash"
 
 let User = mongoose.model('User', userSchema)
 let OTPLog = mongoose.model('OTPLog', otpSchema)
 let UserAddress = mongoose.model('UserAddress', userAddressSchema)
+let Card = mongoose.model('Card', cardSchema)
 
 const mail = require('../modules/sendEmail');
 
@@ -1492,7 +1494,7 @@ customerAPI.post('/postOrder',jwtTokenValidator.validateToken,restaurantValidato
                                             res.send({
                                                 success: true,
                                                 STATUSCODE: 200,
-                                                message: 'Order Updated Successfully.',
+                                                message: 'Order Submited Successfully.',
                                                 response_data: respOrder
                                             });
 
@@ -1585,7 +1587,7 @@ customerAPI.post('/orderList',jwtTokenValidator.validateToken,restaurantValidato
                             var vendorInfo = await vendorSchema.findOne({_id: order.vendorId});
                             orderlst.restaurantName = vendorInfo.restaurantName;
                             orderlst.description = vendorInfo.description;
-                            orderlst.restaurantImage = `${config.serverhost}:${config.port}/img/vendor/${vendorInfo.banner}`;
+                            orderlst.restaurantImage = `${config.serverhost}:${config.port}/img/vendor/${vendorInfo.logo}`;
 
                             allorders.push(orderlst);
                         }
@@ -1707,6 +1709,85 @@ customerAPI.post('/logout',jwtTokenValidator.validateToken, customerValidator.lo
             message: 'Internal DB error.',
             response_data: {}
         });
+    }
+})
+//#endregion
+
+//#region add card for payment
+customerAPI.post('/addPaymentDetails', jwtTokenValidator.validateToken, customerValidator.addPaymentDetails, async (req, res) => {
+    try {
+        const data = req.body
+        if(data){
+            const nameOnCard = data.nameOnCard
+            const cardNumber = data.cardNumber
+            const expiryDate = data.expiryDate
+            const zipCode = data.zipCode
+            const rememberCard = data.rememberCard
+
+            const isExist = await Card.findOne({cardNumber : cardNumber})
+            if(isExist){
+                return res.send({
+                    status : false,
+                    STATUSCODE : 400,
+                    message : "Already exist",
+                    response_data: {}
+                })
+            }
+
+            //save card
+            const addCard = new Card({
+                userId : req.user._id,
+                nameOnCard : nameOnCard,
+                cardNumber : cardNumber,
+                expiryDate : expiryDate,
+                zipCode : zipCode
+            })
+            const addRes = await addCard.save()
+
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Card added successfully.',
+                response_data: addRes
+            })
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region list of card
+customerAPI.get('/cardList', jwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        const allCardListOfUser = await Card.find({userId : req.user._id,}).sort({_id : -1})
+        if(allCardListOfUser.length > 0){
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Card list fetch successfully.',
+                response_data: allCardListOfUser
+            })
+        }else{
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'No card found.',
+                response_data: []
+            })
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        }); 
     }
 })
 //#endregion

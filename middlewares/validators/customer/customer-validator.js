@@ -492,6 +492,27 @@ module.exports = {
         } else {
             next();
         }
+    },
+    addPaymentDetails : async (req, res, next) => {
+        const rules = joi.object({
+            nameOnCard : joi.string().required().error(new Error('nameOnCard is required')),
+            cardNumber : joi.number().required().error(new Error('cardNumber is required')),
+            expiryDate : joi.string().required().error(new Error('expiryDate is required')),
+            cvv : joi.number().required().error(new Error('cvv is required')),
+            zipCode : joi.number().required().error(new Error('zipCode is required')),
+            rememberCard : joi.number().required().error(new Error('rememberCard is required')),
+        });
+
+        const value = await rules.validate(req.body);
+        if (value.error) {
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: value.error.message
+            })
+        } else {
+            next();
+        }
     }
 }
 
