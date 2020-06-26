@@ -21,12 +21,14 @@ import categorySchema from "../schema/Category"
 import bannerSchema from "../schema/Banner"
 import userAddressSchema from "../schema/Address"
 import cardSchema from "../schema/Card"
+import cartSchema from "../schema/Cart"
 import _ from "lodash"
 
 let User = mongoose.model('User', userSchema)
 let OTPLog = mongoose.model('OTPLog', otpSchema)
 let UserAddress = mongoose.model('UserAddress', userAddressSchema)
 let Card = mongoose.model('Card', cardSchema)
+let Cart = mongoose.model('Cart', cartSchema)
 
 const mail = require('../modules/sendEmail');
 
@@ -59,7 +61,7 @@ let restrictImgType = function(req, file, cb) {
       }
 };
 
-const upload = multer({ storage: storage, limits: {fileSize:5242880 , fileFilter:restrictImgType} }).single('image');
+const upload = multer({ storage: storage, limits: {fileSize: 10485760 , fileFilter:restrictImgType} }).single('image');
 //#endregion
 
 //#region registration
@@ -99,7 +101,8 @@ customerAPI.post('/registration', customerValidator.customerRegister, async (req
 
                         const finalResponse = {
                             userDetails: {
-                                ...addCustomerWithSocial.toObject()
+                                ...addCustomerWithSocial.toObject(),
+                                loginId : loginId
                             },
                             authToken: authToken
                         }
@@ -127,7 +130,20 @@ customerAPI.post('/registration', customerValidator.customerRegister, async (req
                     response_data: {}
                 })
             }else{
+
                 const addCustomerWithNormalRegistration = await new User(data).save()
+
+                //ADD DATA IN USER LOGIN DEVICE TABLE
+                const userDeviceData = {
+                    userId: addCustomerWithNormalRegistration._id,
+                    userType: 'CUSTOMER',
+                    appType: data.appType,
+                    pushMode: data.pushMode,
+                    deviceToken: data.deviceToken
+                }
+
+                const success = await new userDeviceLoginSchema(userDeviceData).save()
+                let loginId = success._id;
 
                 if(addCustomerWithNormalRegistration != ''){
                     //sent otp for complete registration process
@@ -151,6 +167,7 @@ customerAPI.post('/registration', customerValidator.customerRegister, async (req
                             let finalResponse =  {
                                 userDetails : {
                                     ...addCustomerWithNormalRegistration.toObject(),
+                                    loginId,
                                     otp : generateRegisterOTP
                                 },
                                 authToken : authToken
@@ -1301,6 +1318,263 @@ customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurant
         }
     } catch (error) {
         res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region Add to cart
+customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const data = req.body
+        if(data){
+            const itemObj = {}
+            if(!data.vendorId){
+                return res.json({
+                    status : false,
+                    STATUSCODE : 422,
+                    message : "vendorId is required.",
+                    response_data: {}
+                })
+            }
+
+            if(!data.itemId){
+                return res.json({
+                    status : false,
+                    STATUSCODE : 422,
+                    message : "itemId is required",
+                    response_data: {}
+                })
+            }
+            itemObj.itemId = data.itemId
+
+            if(!data.itemAmount){
+                return res.json({
+                    status : false,
+                    STATUSCODE : 422,
+                    message : "itemAmount is required",
+                    response_data: {}
+                })
+            }
+            itemObj.itemAmount = parseFloat(data.itemAmount)
+
+            if(!data.itemQuantity){
+                return res.json({
+                    status : false,
+                    STATUSCODE : 422,
+                    message : "itemQuantity is required",
+                    response_data: {}
+                })
+            }else{
+                itemObj.itemQuantity = parseInt(data.itemQuantity)
+                itemObj.itemTotal = parseFloat(itemObj.itemQuantity * itemObj.itemAmount)
+            }
+
+            //#region check userId is already exist in cart or not. If exist then update item object otherwise insert new item
+            const isUserExist = await Cart.findOne({userId : req.user._id, isCheckout : 1, status : 'Y'})
+            if(isUserExist){
+                isUserExist.item.unshift(itemObj)
+                isUserExist.cartTotal = parseFloat(isUserExist.cartTotal + itemObj.itemTotal)
+
+                const result = await isUserExist.save()
+
+                return res.json({
+                    status : true,
+                    STATUSCODE : 200,
+                    message : "Item has been successfully added to cart.",
+                    response_data : result
+                })
+
+            }else{
+                //#region  new item add 
+                const itemAddedObj = new Cart({
+                    userId : req.user._id,
+                    vendorId : data.vendorId,
+                    item : itemObj,
+                    cartTotal : parseFloat(itemObj.itemTotal)
+                })
+                const result = await itemAddedObj.save()
+
+                return res.json({
+                    status : true,
+                    STATUSCODE : 200,
+                    message : "Item has been successfully added to cart.",
+                    response_data : result
+                })
+                //#endregion
+            }
+            //#endregion
+        }
+    } catch (error) {
+        res.json({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region fetch user cart section
+customerAPI.get('/fetchCart', jwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const fetchCartList = await Cart.findOne({userId : req.user._id, status : 'Y'})
+        .populate('vendorId', {_id : 0, restaurantName : 1,  })
+        .populate('item.itemId')
+
+        if(fetchCartList){
+            return res.json({
+                status : true,
+                STATUSCODE : 200,
+                message : "Fetch cart item successfully.",
+                response_data : fetchCartList
+            })
+        }
+        return res.json({
+            status : true,
+            STATUSCODE : 200,
+            message : "No cart item found.",
+            response_data : {}
+        })
+    } catch (error) {
+        res.json({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region update Cart
+customerAPI.post('/updateCartItem', jwtTokenValidator.validateToken, customerValidator.updateCartItemValidator, async (req, res) => {
+    try {
+        const data = req.body
+        if(data){
+            // find cart detail of logged in user
+            const isCartExist = await Cart.findById(data.cartId)
+            if(isCartExist){
+                // find cart item
+                const isCartItemExist = _.filter(isCartExist.item, product => product._id == data.itemId)
+
+                if(isCartItemExist.length > 0){
+                    const itemQuantity = data.itemQuantity
+                    const previousCartTotal = isCartExist.cartTotal
+                    const previousItemTotal = isCartItemExist[0].itemTotal
+
+                    if(itemQuantity > 0){
+                        //update item
+                        isCartItemExist[0].itemQuantity = parseInt(itemQuantity)
+                        isCartItemExist[0].itemTotal = parseFloat( isCartItemExist[0].itemAmount * itemQuantity)
+
+                        //update cart total increase or decrease number of quantity
+                        let  cartValueAfterDeductivePreviousItemValue = Number(parseFloat(previousCartTotal) - parseFloat(previousItemTotal))
+                        const finalCartValue = Number(parseFloat(cartValueAfterDeductivePreviousItemValue) + isCartItemExist[0].itemTotal)
+
+                        isCartExist.cartTotal = finalCartValue
+
+                        let updatedData = await isCartExist.save()
+
+                        return res.json({
+                            success: true,
+                            STATUSCODE: 200,
+                            message: 'Cart updated successfully.',
+                            response_data: updatedData
+                        })
+                    }
+                    return res.json({
+                        success: true,
+                        STATUSCODE: 422,
+                        message: 'Product quantity must be greater then 0.',
+                        response_data: {}
+                    })
+                }
+
+                return res.json({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'Wrong item selected or product not found.',
+                    response_data: {}
+                })
+            }
+            return res.json({
+                success: true,
+                STATUSCODE: 200,
+                message: 'No cart item found.',
+                response_data: {}
+            })
+        }
+    } catch (error) {
+        res.json({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region product remove from cart
+customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerValidator.removeCartItemValidator, async (req, res) => {
+    try {
+        const data = req.body
+        if(data){
+            const isExist = await Cart.findOne({_id : data.cartId, userId : req.user._id, isCheckout : 1})
+            if(isExist){
+                const itemDetail = _.filter(isExist.item, product => product._id == data.itemId)
+
+                // remove item
+                const removedData = await Cart.update({_id : data.cartId},{
+                    $pull : {
+                        item :{
+                            _id : itemDetail[0]._id
+                        }
+                    }
+                })
+
+                //update Cart total
+                isExist.cartTotal = parseFloat(isExist.cartTotal - itemDetail[0].itemTotal)
+                await isExist.save() 
+
+                let updatedCart = await Cart.findOne({userId : req.user._id, _id : data.cartId})
+                .populate('vendorId', {_id : 1, restaurantName : 1,  })
+                .populate('item.itemId', {_id : 1, itemName : 1})
+
+                // delete full cart object from DB if cart item is running below from one.
+                if(updatedCart){
+                    if(updatedCart.item.length == 0){
+                        const deleteCart = await Cart.deleteOne({_id : data.cartId})
+                        if(deleteCart){
+                            updatedCart = {}
+                        }
+                    }
+
+                }
+
+                return res.json({
+                    status : true,
+                    STATUSCODE : 200,
+                    message : "Item has been successfully removed from cart.",
+                    response_data: updatedCart
+                })
+            }
+
+            return res.json({
+                status : true,
+                STATUSCODE : 200,
+                message : "Record not found.",
+                response_data: {}
+            })
+        }
+    } catch (error) {
+        res.json({
             success: false,
             STATUSCODE: 500,
             message: 'Internal DB error.',

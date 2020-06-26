@@ -513,6 +513,41 @@ module.exports = {
         } else {
             next();
         }
+    },
+    updateCartItemValidator : async (req, res, next) => {
+        const rules = joi.object({
+            cartId : joi.string().required().error(new Error('cartId is required')),
+            itemId : joi.string().required().error(new Error('itemId is required')),
+            itemQuantity : joi.number().required().error(new Error('itemQuantity is required'))
+        });
+
+        const value = await rules.validate(req.body);
+        if (value.error) {
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: value.error.message
+            })
+        } else {
+            next();
+        }
+    },
+    removeCartItemValidator : async (req, res, next) => {
+        const rules = joi.object({
+            cartId : joi.string().required().error(new Error('cartId is required')),
+            itemId : joi.string().required().error(new Error('itemId is required'))
+        });
+
+        const value = await rules.validate(req.body);
+        if (value.error) {
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: value.error.message
+            })
+        } else {
+            next();
+        }
     }
 }
 
