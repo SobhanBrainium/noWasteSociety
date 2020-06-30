@@ -10,9 +10,12 @@ import bodyParser from "body-parser"
 import cookieParser from "cookie-parser"
 import config from "./config"
 import exphbs from "express-handlebars"
-
+import handlebars from "handlebars"
+import layouts from "handlebars-layouts"
 
 const app = express();
+
+handlebars.registerHelper(layouts(handlebars))
 
 var hostName = os.hostname();
 

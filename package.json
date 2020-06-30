@@ -33,6 +33,7 @@
     "file-type": "^14.6.1",
     "geolib": "^3.3.1",
     "handlebars-dateformat": "^1.1.1",
+    "handlebars-layouts": "^3.1.4",
     "hbs": "^4.1.1",
     "image-downloader": "^4.0.1",
     "jsonwebtoken": "^8.5.1",
