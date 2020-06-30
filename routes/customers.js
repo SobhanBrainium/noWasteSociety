@@ -97,7 +97,7 @@ customerAPI.post('/registration', customerValidator.customerRegister, async (req
                         let loginId = success._id;
                         let loginType = data.loginType;
 
-                        const authToken = generateToken(success);
+                        const authToken = generateToken(addCustomerWithSocial);
 
                         const finalResponse = {
                             userDetails: {
@@ -261,7 +261,7 @@ customerAPI.post('/login', customerValidator.customerLogin, async (req, res) => 
                         },
                         authToken: authToken
                     }
-                    console.log(response,'response')
+                    // console.log(response,'response')
 
                     res.send({
                         success: true,
@@ -1244,7 +1244,7 @@ customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurant
 
 
                                 //Get Item Details
-                                var restaurantItemDetails = await restaurantCategoryItem(vendorId, categoryId);
+                                var restaurantItemDetails = await restaurantCategoryItem(vendorId);
 
                                 if (restaurantItemDetails != 'err') {
                                     responseDt.catitem = restaurantItemDetails;
@@ -1333,9 +1333,10 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
         const data = req.body
         if(data){
             const itemObj = {}
+            //#region required field validation
             if(!data.vendorId){
                 return res.json({
-                    status : false,
+                    success: false,
                     STATUSCODE : 422,
                     message : "vendorId is required.",
                     response_data: {}
@@ -1344,7 +1345,7 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
 
             if(!data.itemId){
                 return res.json({
-                    status : false,
+                    success: false,
                     STATUSCODE : 422,
                     message : "itemId is required",
                     response_data: {}
@@ -1354,7 +1355,7 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
 
             if(!data.itemAmount){
                 return res.json({
-                    status : false,
+                    success: false,
                     STATUSCODE : 422,
                     message : "itemAmount is required",
                     response_data: {}
@@ -1364,7 +1365,7 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
 
             if(!data.itemQuantity){
                 return res.json({
-                    status : false,
+                    success: false,
                     STATUSCODE : 422,
                     message : "itemQuantity is required",
                     response_data: {}
@@ -1373,21 +1374,41 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
                 itemObj.itemQuantity = parseInt(data.itemQuantity)
                 itemObj.itemTotal = parseFloat(itemObj.itemQuantity * itemObj.itemAmount)
             }
+            //#endregion
 
-            //#region check userId is already exist in cart or not. If exist then update item object otherwise insert new item
+            //#region check userId is already exist in cart or not. If exist then update item object otherwise insert new item.
             const isUserExist = await Cart.findOne({userId : req.user._id, isCheckout : 1, status : 'Y'})
             if(isUserExist){
-                isUserExist.item.unshift(itemObj)
-                isUserExist.cartTotal = parseFloat(isUserExist.cartTotal + itemObj.itemTotal)
+                //#region check same restaurant or not. If same then update item object otherwise new item object inserted with new restaurant.
+                const previousVendorId = isUserExist.vendorId
+                if(previousVendorId == data.vendorId){
+                    // update item object
+                    isUserExist.item.unshift(itemObj)
+                    isUserExist.cartTotal = parseFloat(isUserExist.cartTotal + itemObj.itemTotal)
 
-                const result = await isUserExist.save()
+                    const result = await isUserExist.save()
 
-                return res.json({
-                    status : true,
-                    STATUSCODE : 200,
-                    message : "Item has been successfully added to cart.",
-                    response_data : result
-                })
+                    return res.json({
+                        success: true,
+                        STATUSCODE : 200,
+                        message : "Item has been successfully added to cart.",
+                        response_data : result
+                    })
+                }else{
+                    isUserExist.cartTotal = parseFloat(itemObj.itemTotal)
+                    isUserExist.vendorId = data.vendorId
+                    isUserExist.item = itemObj
+
+                    const newRestaurantObj = await isUserExist.save()
+
+                    return res.json({
+                        success: true,
+                        STATUSCODE : 200,
+                        message : "Item has been successfully added to cart.",
+                        response_data : newRestaurantObj
+                    })
+                }
+                //#endregion
 
             }else{
                 //#region  new item add 
@@ -1400,7 +1421,7 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
                 const result = await itemAddedObj.save()
 
                 return res.json({
-                    status : true,
+                    success: true,
                     STATUSCODE : 200,
                     message : "Item has been successfully added to cart.",
                     response_data : result
@@ -1425,18 +1446,22 @@ customerAPI.get('/fetchCart', jwtTokenValidator.validateToken, async (req, res) 
     try {
         const fetchCartList = await Cart.findOne({userId : req.user._id, status : 'Y'})
         .populate('vendorId', {_id : 0, restaurantName : 1,  })
-        .populate('item.itemId')
+        .populate('item.itemId', {_id : 0, menuImage : 1, itemName : 1  })
 
         if(fetchCartList){
+            _.forEach(fetchCartList.item, (itemValue) => {
+                itemValue.itemId.menuImage =  `${config.serverhost}:${config.port}/img/item/` + itemValue.itemId.menuImage
+            })
+
             return res.json({
-                status : true,
+                success: true,
                 STATUSCODE : 200,
                 message : "Fetch cart item successfully.",
                 response_data : fetchCartList
             })
         }
         return res.json({
-            status : true,
+            success: true,
             STATUSCODE : 200,
             message : "No cart item found.",
             response_data : {}
@@ -1478,14 +1503,22 @@ customerAPI.post('/updateCartItem', jwtTokenValidator.validateToken, customerVal
                         const finalCartValue = Number(parseFloat(cartValueAfterDeductivePreviousItemValue) + isCartItemExist[0].itemTotal)
 
                         isCartExist.cartTotal = finalCartValue
+                        const updatedData = await isCartExist.save()
 
-                        let updatedData = await isCartExist.save()
+                        const fetchCartList = await Cart.findOne({userId : req.user._id, _id : data.cartId, status : 'Y'})
+                        .populate('vendorId', {_id : 0, restaurantName : 1,  })
+                        .populate('item.itemId', {_id : 0, menuImage : 1, itemName : 1  })
+
+                        _.forEach(fetchCartList.item, (itemValue) => {
+                            itemValue.itemId.menuImage =  `${config.serverhost}:${config.port}/img/item/` + itemValue.itemId.menuImage
+                        })
+
 
                         return res.json({
                             success: true,
                             STATUSCODE: 200,
                             message: 'Cart updated successfully.',
-                            response_data: updatedData
+                            response_data: fetchCartList
                         })
                     }
                     return res.json({
@@ -1544,8 +1577,13 @@ customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerVal
                 await isExist.save() 
 
                 let updatedCart = await Cart.findOne({userId : req.user._id, _id : data.cartId})
-                .populate('vendorId', {_id : 1, restaurantName : 1,  })
-                .populate('item.itemId', {_id : 1, itemName : 1})
+                .populate('vendorId', {_id : 0, restaurantName : 1,  })
+                .populate('item.itemId', {_id : 0, menuImage : 1, itemName : 1  })
+        
+                _.forEach(updatedCart.item, (itemValue) => {
+        
+                    itemValue.itemId.menuImage =  `${config.serverhost}:${config.port}/img/item/` + itemValue.itemId.menuImage
+                })
 
                 // delete full cart object from DB if cart item is running below from one.
                 if(updatedCart){
@@ -1559,7 +1597,7 @@ customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerVal
                 }
 
                 return res.json({
-                    status : true,
+                    success: true,
                     STATUSCODE : 200,
                     message : "Item has been successfully removed from cart.",
                     response_data: updatedCart
@@ -1567,7 +1605,7 @@ customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerVal
             }
 
             return res.json({
-                status : true,
+                success: true,
                 STATUSCODE : 200,
                 message : "Record not found.",
                 response_data: {}
@@ -2001,7 +2039,7 @@ customerAPI.post('/addPaymentDetails', jwtTokenValidator.validateToken, customer
             const isExist = await Card.findOne({cardNumber : cardNumber})
             if(isExist){
                 return res.send({
-                    status : false,
+                    success: false,
                     STATUSCODE : 400,
                     message : "Already exist",
                     response_data: {}
@@ -2215,7 +2253,7 @@ function getDistanceinMtr(sourceLat, sourceLong, destinationLat, destinationLong
     });
 }
 
-function restaurantCategoryItem(vendorId, categoryId) {
+function restaurantCategoryItem(vendorId) {
     return new Promise(function (resolve, reject) {
         var resp = {};
 
@@ -2224,12 +2262,12 @@ function restaurantCategoryItem(vendorId, categoryId) {
             isActive: true
         }
 
-        if (categoryId != '') {
-            itemSerachParam.categoryId = categoryId;
-            var catId = 1;
-        } else {
-            var catId = 0;
-        }
+        // if (categoryId != '') {
+        //     itemSerachParam.categoryId = categoryId;
+        //     var catId = 1;
+        // } else {
+        //     var catId = 0;
+        // }
         itemSchema.find(itemSerachParam)
             .sort({ createdAt: -1 })
             .exec(async function (err, results) {
@@ -2237,65 +2275,21 @@ function restaurantCategoryItem(vendorId, categoryId) {
                     console.log(err);
                     return resolve('err');
                 } else {
-                    if (catId == 1) { // Category with Items Data
-                        if (results.length > 0) {
-                            var itemsArr = [];
-                            for (let itemsVal of results) {
-                                var itemsObj = {};
-                                itemsObj.itemId = itemsVal._id
-                                itemsObj.itemName = itemsVal.itemName
-                                itemsObj.type = itemsVal.type
-                                itemsObj.price = itemsVal.price
-                                itemsObj.description = itemsVal.description
-                                itemsObj.menuImage = `${config.serverhost}:${config.port}/img/item/${itemsVal.menuImage}`;
+                    if (results.length > 0) {
+                        var itemsArr = [];
+                        for (let itemsVal of results) {
+                            var itemsObj = {};
+                            itemsObj.itemId = itemsVal._id
+                            itemsObj.itemName = itemsVal.itemName
+                            itemsObj.type = itemsVal.type
+                            itemsObj.price = itemsVal.price
+                            itemsObj.description = itemsVal.description
+                            itemsObj.menuImage = `${config.serverhost}:${config.port}/img/item/${itemsVal.menuImage}`;
 
-                                itemsArr.push(itemsObj);
-                            }
+                            itemsArr.push(itemsObj);
                         }
-                        resp.item = itemsArr;
-                        // console.log(itemsArr);
-                    } else {
-                        if (results.length > 0) {
-                            var categoryId = results[0].categoryId;
-                            var itemsArr = [];
-                            var categoryIdArr = [];
-                            for (let itemsVal of results) {
-
-                                if (itemsVal.categoryId.toString() == categoryId.toString()) {
-                                    var itemsObj = {};
-                                    itemsObj.itemId = itemsVal._id
-                                    itemsObj.categoryId = itemsVal.categoryId
-                                    itemsObj.itemName = itemsVal.itemName
-                                    itemsObj.type = itemsVal.type
-                                    itemsObj.price = itemsVal.price
-                                    itemsObj.description = itemsVal.description
-                                    itemsObj.menuImage = `${config.serverhost}:${config.port}/img/vendor/${itemsVal.menuImage}`;
-
-                                    itemsArr.push(itemsObj);
-                                }
-                                if (!categoryIdArr.includes(itemsVal.categoryId)) {
-                                    // console.log(itemsVal.categoryId); 
-                                    categoryIdArr.push(itemsVal.categoryId);
-                                    // console.log(categoryIdArr);
-                                }
-
-                            }
-                        }
-                        resp.item = itemsArr;
-
-                        // console.log(categoryIdArr);
-
-                        //Category Data
-                        var categoryData = {};
-                        categoryData.data = await categorySchema.find({
-                            _id: { $in: categoryIdArr }
-                        }, { "categoryName": 1, "image": 1 });
-                        // console.log(categoryData.data);
-                        categoryData.imageUrl = `${config.serverhost}:${config.port}/img/category/`;
-
-                        // console.log(categoryData);
-                        resp.category = categoryData;
                     }
+                    resp.item = itemsArr;
                     return resolve(resp);
                 }
             })
