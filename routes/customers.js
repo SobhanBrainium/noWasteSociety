@@ -1395,17 +1395,11 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
                         response_data : result
                     })
                 }else{
-                    isUserExist.cartTotal = parseFloat(itemObj.itemTotal)
-                    isUserExist.vendorId = data.vendorId
-                    isUserExist.item = itemObj
-
-                    const newRestaurantObj = await isUserExist.save()
-
                     return res.json({
-                        success: true,
-                        STATUSCODE : 200,
-                        message : "Item has been successfully added to cart.",
-                        response_data : newRestaurantObj
+                        success: false,
+                        STATUSCODE : 422,
+                        message : "Multiple restaurant item can not be added in cart. Either you have to purchase it or clear the previous cart. .",
+                        response_data : {}
                     })
                 }
                 //#endregion
@@ -1429,6 +1423,53 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
                 //#endregion
             }
             //#endregion
+        }
+    } catch (error) {
+        res.json({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
+//#region remove Previous Whole Cart
+customerAPI.post('/removePreviousWholeCart', jwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const data = req.body
+        if(data){
+            if(data.allowMultipleRestaurant === true || data.allowMultipleRestaurant === 'true'){
+                //#region delete previous cart
+                const isUserExist = await Cart.findOne({userId : req.user._id, isCheckout : 1, status : 'Y'})
+                if(isUserExist){
+                    const deleteCart = await Cart.deleteOne({userId : req.user._id, isCheckout : 1, status : 'Y'})
+                    if(deleteCart){
+                        return res.json({
+                            success: true,
+                            STATUSCODE : 200,
+                            message : "Your previous cart is cleared.",
+                            response_data: {}
+                        })
+                    }
+                }
+                //#endregion
+
+                return res.json({
+                    success: true,
+                    STATUSCODE : 200,
+                    message : "No previous cart found.",
+                    response_data: {}
+                })
+            }
+
+            return res.json({
+                success: true,
+                STATUSCODE : 200,
+                message : "Record not deleted.",
+                response_data: {}
+            })
         }
     } catch (error) {
         res.json({

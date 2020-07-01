@@ -1,0 +1,85 @@
+<div class="login-box">
+  <div class="login-logo">
+    <a href="#">No Waste Society</a>
+  </div>
+  <!-- /.login-logo -->
+  <div class="card">
+    <div class="card-body login-card-body">
+        {{#if message}}
+            <div class="alert alert-danger">
+                <strong>Error! </strong>{{message}}
+            </div>
+        {{/if}}
+      <form action="/" method="POST" name="admin_login_form" id="admin_login_form">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}">
+        <div class="input-group mb-3">
+            <input type="email" class="form-control" placeholder="Email" name="email" id="email">
+            <div class="input-group-append">
+                <div class="input-group-text">
+                <span class="fas fa-envelope"></span>
+                </div>
+            </div>
+        </div>
+        <label id="email-error" class="error" for="email"></label>
+
+        <div class="input-group mb-3">
+            <input type="password" class="form-control" placeholder="Password" name="password" id="password">
+            <div class="input-group-append">
+                <div class="input-group-text">
+                <span class="fas fa-lock"></span>
+                </div>
+            </div>
+        </div>
+        <label id="password-error" class="error" for="password"></label>
+
+        <div class="row">
+          <!-- /.col -->
+          <div class="col-4">
+            <button type="submit" class="btn btn-primary btn-block" id="admin_login">Sign In</button>
+          </div>
+          <!-- /.col -->
+        </div>
+      </form>
+
+      <p class="mb-1">
+        <a href="forgot-password.html">I forgot my password</a>
+      </p>
+    </div>
+    <!-- /.login-card-body -->
+  </div>
+</div>
+<!-- /.login-box -->
+
+{{#content "script"  mode="append"}}
+	<script type="text/javascript">
+		jQuery(document).ready(function() {
+			$(".alert").fadeTo(2000, 500).slideUp(500, function(){
+                $(".alert").slideUp(500);
+            });
+			$('#admin_login').on('click', function () {
+				var valid = $('#admin_login_form').valid();
+				if(valid){
+					$('#admin_login_form').submit;
+				}
+			});
+			$('#admin_login_form').validate({
+				rules:{
+					email:{
+						required: true
+					},
+					password: {
+						required: true
+					}
+				},
+				messages:{
+					email:{
+						required: "<font color = 'red'>Please enter your email id.</font>"
+					},
+					password: {
+						required: "<font color = 'red'>Please enter your password.</font>"
+					}
+				}
+			});
+		});
+	</script>
+{{/content}}

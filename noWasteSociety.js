@@ -1,4 +1,5 @@
 import express from "express"
+import session from "express-session"
 import os from "os"
 import fs from "fs"
 import http from "http"
@@ -12,6 +13,8 @@ import config from "./config"
 import exphbs from "express-handlebars"
 import handlebars from "handlebars"
 import layouts from "handlebars-layouts"
+import passport from "passport"
+import flash from "connect-flash"
 
 const app = express();
 
@@ -67,10 +70,28 @@ app.use(allowCrossDomain);
 //end
 //#endregion
 
+//#region create session for admin web
+app.use(session({
+  secret: "xbBzCElklLCf7KKimO482mN7z3TGOz0Z",
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    path: "/",
+    maxAge: 1800000
+  },
+  name: "id", 
+  ttl: (1* 60* 60)
+}));
+//#endregion
+
 app.use(cookieParser());
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(flash())
 
 app.use(express.static(path.join(__dirname, "public")));
 // view engine setup
@@ -152,10 +173,19 @@ var hbs = exphbs.create({
 });  
 //#endregion
 
-//#region Load router
-//==== Load Router =====//
+app.engine('.hbs', hbs.engine);
+app.set('view engine', 'hbs');
+
+//#region Load API router
+//==== Load API Router =====//
 app.use('/api/customer',customerRoutes);
 //#endregion
+
+//#region Admin routes
+const adminIndexRoute = require('./routes/admin/index');
+//#endregion
+
+app.use(adminIndexRoute)
 
 //====Port open to run application
 server.listen(config.port, (err) => {
