@@ -9,7 +9,7 @@ module.exports = function(emailType) {
     // define mail types
     var mailDict = {
         "userRegistrationMail" :{
-            subject : "Welcome to Trolley",
+            subject : "Welcome to No Waste Society",
             //html    : require('./welcomeUser'),
         },
         "forgotPasswordMail" :{

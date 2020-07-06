@@ -1,9 +1,9 @@
 import mongoose from "mongoose"
-import userSchema from "../schema/User"
-import bCrypt from "bcryptjs"
+import adminSchema from "../schema/Admin"
+import bcrypt from "bcryptjs"
 import LocalStrategy from "passport-local"
 
-let User = mongoose.model('User', userSchema)
+let Admin = mongoose.model('Admin', adminSchema)
 
 module.exports = passport => {
 
@@ -12,7 +12,7 @@ module.exports = passport => {
     });
 
     passport.deserializeUser((id, done) => {
-        User.findById(id)
+        Admin.findById(id)
             .then(user => {
                 return done(null, user);
             });
@@ -25,10 +25,10 @@ module.exports = passport => {
             passReqToCallback: true
         }, (req, email, password, done) => {
             var isValidPassword = function (userpass, password) {
-                return bCrypt.compareSync(password, userpass);
+                return bcrypt.compareSync(password, userpass);
             }
 
-            User.findOne({ email })
+            Admin.findOne({ email, userType : req.body.userType})
                 .then(user => {
                     if(!user) {
                         return done(null, false, req.flash('loginMessage', 'Wrong Username or password'));
@@ -40,7 +40,6 @@ module.exports = passport => {
                     return done(null, user);
                 })
                 .catch(err => {
-                    console.log(err);
                     return done(null, false, req.flash('loginMessage', 'Something wrong.Please try again.'));
                 });
         })

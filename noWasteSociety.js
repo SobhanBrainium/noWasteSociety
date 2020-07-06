@@ -70,6 +70,11 @@ app.use(allowCrossDomain);
 //end
 //#endregion
 
+app.use(cookieParser());
+
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
 //#region create session for admin web
 app.use(session({
   secret: "xbBzCElklLCf7KKimO482mN7z3TGOz0Z",
@@ -83,12 +88,6 @@ app.use(session({
   ttl: (1* 60* 60)
 }));
 //#endregion
-
-app.use(cookieParser());
-
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash())
