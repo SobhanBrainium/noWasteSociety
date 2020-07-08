@@ -47,11 +47,23 @@ adminAPI.get("/dashboard", csrfProtection, async (req, res) => {
     });
 })
 
-adminAPI.get('/restaurant', csrfProtection, (req, res) => {
-    res.render('addRestaurantAdmin', {
+adminAPI.get('/restaurant', csrfProtection, async (req, res) => {
+    // fetch restaurant admin details
+    const restaurantAdminDetail = await Admin.find({isActive : true, userType : 'restaurant'},{
+        _id : 1,
+        firstName : 1,
+        lastName : 1,
+        email : 1,
+        phone : 1
+    })
+    .sort({_id : -1})
+    // end
+
+    res.render('restaurant/list', {
         layout : "adminDashboardView",
-        title : "Restaurant Admin",
-        csrfToken: req.csrfToken()
+        title : "Restaurant Admin List",
+        csrfToken: req.csrfToken(),
+        list : restaurantAdminDetail
     })
 })
 
