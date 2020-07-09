@@ -1,3 +1,5 @@
+
+
 <!-- Content Header (Page header) -->
 <section class="content-header">
     <div class="container-fluid">
@@ -8,6 +10,7 @@
         <div class="col-sm-6">
         <ol class="breadcrumb float-sm-right">
             <li class="breadcrumb-item"><a href="/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/restaurant">Restaurant Admin List</a></li>
             <li class="breadcrumb-item active">Restaurant Admin Form</li>
         </ol>
         </div>
@@ -16,8 +19,14 @@
 </section>
 
 {{#if message}}
+    <div class="alert alert-success">
+        {{message}}
+    </div>
+{{/if}}
+
+{{#if errorMessage}}
     <div class="alert alert-danger">
-        <strong>Error! </strong>{{message}}
+        {{errorMessage}}
     </div>
 {{/if}}
 

@@ -2145,6 +2145,144 @@ customerAPI.get('/cardList', jwtTokenValidator.validateToken, async(req, res) =>
 })
 //#endregion
 
+//#region list of favorites restaurant by customer
+customerAPI.get('/favoriteRestaurantsList', jwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        const userData = req.user
+        const favoriteLists = await vendorFavouriteSchema.find({customerId : userData._id})
+        .populate('vendorId').sort({_id : -1})
+
+        if(favoriteLists.length > 0){
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Favorite restaurant list fetch successfully.',
+                response_data: favoriteLists
+            })
+        }else{
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'No favorite restaurant list found.',
+                response_data: []
+            })
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        }); 
+    }
+})
+//#endregion
+
+//#region mark as favorite restaurant by customer
+customerAPI.post('/markAsFavorite', jwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        const userData = req.user
+        const data = req.body
+
+        if(!data.vendorId){
+            return res.send({
+                success: false,
+                STATUSCODE: 422,
+                message: 'Please provide vendorId.'
+            })
+        }
+
+        const alreadyAddedOrNot = await vendorFavouriteSchema.findOne({vendorId : data.vendorId,
+        customerId : userData._id})
+
+        if(alreadyAddedOrNot){
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Restaurant has already marked as favorite.',
+                response_data: {}
+            })
+        }
+
+        const markAsFavorite = new vendorFavouriteSchema({
+            vendorId : data.vendorId,
+            customerId : userData._id
+        })
+
+        const addedData = await markAsFavorite.save()
+
+        if(addedData){
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Restaurant mark as favorite successfully.',
+                response_data: addedData
+            })
+        }else{
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Failed.',
+                response_data: {}
+            })
+        }
+    } catch (error) {
+        console.log(error,'error')
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        }); 
+    }
+})
+//#endregion
+
+//#region mark as un favorite restaurant by customer
+customerAPI.post('/markAsUnFavorite', jwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        const userData = req.user
+        const data = req.body
+
+        if(!data.vendorId){
+            return res.send({
+                success: false,
+                STATUSCODE: 422,
+                message: 'Please provide vendorId.'
+            })
+        }
+
+        const alreadyAddedOrNot = await vendorFavouriteSchema.findOne({vendorId : data.vendorId,
+        customerId : userData._id})
+
+        if(alreadyAddedOrNot){
+            const unFavourite = await vendorFavouriteSchema.remove({vendorId : data.vendorId,
+                customerId : userData._id})
+            return res.send({
+                success: true,
+                STATUSCODE: 200,
+                message: 'Restaurant has marked as un favorite.',
+                response_data: {}
+            })
+        }
+        return res.send({
+            success: true,
+            STATUSCODE: 200,
+            message: 'No restaurant found as favorite.',
+            response_data: {}
+        })
+    } catch (error) {
+        console.log(error,'error')
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        }); 
+    }
+})
+//#endregion
+
 //#region  Resend OTP */
 customerAPI.post('/resendOtp', customerValidator.resendForgotPassOtp, async (req, res) => {
     try {

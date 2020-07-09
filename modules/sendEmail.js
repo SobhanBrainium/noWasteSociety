@@ -22,6 +22,9 @@ module.exports = function(emailType) {
         },
         "resendOtpMail": {
             subject : "Resend OTP",
+        },
+        "restaurantAdminWelcomeMail" : {
+            subject : "Welcome to No waste society"
         }
     };
 
@@ -37,7 +40,7 @@ module.exports = function(emailType) {
     }));
 
 
-    return function(to, data) {
+    return function(to, data, option = '') {
         var self = {
             send: () => {
                 var mailOption = {
@@ -61,6 +64,8 @@ module.exports = function(emailType) {
                     case 'resendOtpMail':
                         mailOption.text = `Hello ${data.firstName}, use ${data.otp} code to verify your account.`
                         break;
+                    case 'restaurantAdminWelcomeMail' :
+                        mailOption.text = `Hello ${data.firstName}. welcome to No Waste Society. Your login credential is email ${data.email} and password ${option}. Login URL ${config.serverhost}:${config.port}`
                 }
  
 

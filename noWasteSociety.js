@@ -5,6 +5,7 @@ import fs from "fs"
 import http from "http"
 import https from "https"
 import customerRoutes from "./routes/customers"
+import deliveryBoyRoutes from "./routes/deliveryBoys"
 import mongoose from "mongoose"
 import path from "path"
 import bodyParser from "body-parser"
@@ -15,10 +16,9 @@ import handlebars from "handlebars"
 import layouts from "handlebars-layouts"
 import passport from "passport"
 import flash from "connect-flash"
+handlebars.registerHelper(layouts(handlebars))
 
 const app = express();
-
-handlebars.registerHelper(layouts(handlebars))
 
 var hostName = os.hostname();
 
@@ -69,6 +69,8 @@ const allowCrossDomain = function (req, res, next) {
 app.use(allowCrossDomain);
 //end
 //#endregion
+
+require('./middlewares/passport')(passport);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -281,7 +283,7 @@ app.use(session({
     saveUninitialized: true,
     cookie: {
         path: "/",
-        maxAge: 1800000
+        // maxAge: 1800000
     },
     name: "id",
     ttl: (1* 60* 60)
@@ -294,7 +296,8 @@ app.use(flash());
 
 //#region Load API router
 //==== Load API Router =====//
-app.use('/api/customer',customerRoutes);
+app.use('/api/customer', customerRoutes);
+app.use('/api/deliveryBoy', deliveryBoyRoutes);
 //#endregion
 
 //#region Admin routes
@@ -302,16 +305,6 @@ const adminIndexRoute = require('./routes/admin/index');
 //#endregion
 
 app.use(adminIndexRoute)
-
-app.use(function(req, res, next){
-  if (req.isAuthenticated())
-  {
-    res.locals.user = req.user;
-
-    return next();
-  }
-  res.redirect('/');
-});
 
 //====Port open to run application
 server.listen(config.port, (err) => {
