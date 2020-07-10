@@ -2,15 +2,24 @@ import express from "express"
 import mongoose from "mongoose"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
-import jwtTokenValidator from "../middlewares/jwt-validation-middlewares"
+import deliveryBoyJwtTokenValidator from "../middlewares/deliveryBoy-token-validator"
 import deliveryBoyValidator from "../middlewares/validators/customer/deliveryBoy-validator"
 import _ from "lodash"
 import config from "../config"
 
 import deliveryboySchema from "../schema/DeliveryBoy"
 import userDeviceLoginSchema from "../schema/UserDeviceLogin"
+import orderAssignToDeliverBoySchema from "../schema/OrderAssignToDeliveryBoy"
+import userAddressSchema from "../schema/Address"
+import orderSchema from "../schema/Order"
+import vendorSchema from "../schema/Vendor"
+import userSchema from "../schema/User"
 
-const mail = require('../modules/sendEmail');
+const mail = require('../modules/sendEmail')
+
+const OrderAssignToDeliveryBoy = mongoose.model('OrderAssignToDeliveryBoy', orderAssignToDeliverBoySchema)
+const User = mongoose.model('User', userSchema)
+const UserAddress = mongoose.model('UserAddress', userAddressSchema)
 
 let app = express.Router()
 app.use(express.json())
@@ -142,7 +151,68 @@ app.post('/login', deliveryBoyValidator.deliveryBoyLogin, async (req, res) => {
             }
         }
     } catch (error) {
-        throw error
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region oder details
+app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const data = req.query
+        if(data){
+            const userData = req.user
+            const destLat = req.query.latitude;
+            const destLong = req.query.longitude;
+
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({})
+            .populate('orderId', {orderTime : 1, orderType : 1, deliveryPreference : 1, price : 1, discount : 1, finalPrice : 1, orderNo : 1, estimatedDeliveryTime : 1, _id : 0})
+            .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
+            .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
+            .populate('deliveryAddressId')
+
+            if(fetchAssignOrders.length > 0){
+                let finalOrderList = []
+
+                for(let i = 0; i < fetchAssignOrders.length; i++ ){
+                    const vendorDetail = fetchAssignOrders[i].vendorId
+                    const sourceLong = vendorDetail.location.coordinates[0];
+                    const sourceLat = vendorDetail.location.coordinates[1];
+
+                    const restaurantDistanceFromDeliveryBoy = await getDistanceinMtr(sourceLat, sourceLong, destLat, destLong)
+
+                    const assignResponse = {
+                        ...fetchAssignOrders[i].toObject(),
+                        restaurantDistanceFromDeliveryBoy
+                    }
+
+                    finalOrderList.push(assignResponse)
+                }
+
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: `${finalOrderList.length} Order found successfully.`,
+                    response_data: finalOrderList
+                })
+
+            }else{
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'No order found.',
+                    response_data: []
+                })
+            }
+        }
+        
+    } catch (error) {
+        console.log(error,'error')
         res.send({
             success: false,
             STATUSCODE: 500,
@@ -157,6 +227,33 @@ app.post('/login', deliveryBoyValidator.deliveryBoyLogin, async (req, res) => {
 function generateToken(userData) {
     let payload = { subject: userData._id, user: 'CUSTOMER' };
     return jwt.sign(payload, config.secretKey, { expiresIn: '24h' })
+}
+
+//getDistance(start, end, accuracy = 1)
+function getDistanceinMtr(sourceLat, sourceLong, destinationLat, destinationLong) {
+    return new Promise(function (resolve, reject) {
+        const geolib = require('geolib');
+
+        var distanceCal = geolib.getDistance(
+            { latitude: sourceLat, longitude: sourceLong },
+            { latitude: destinationLat, longitude: destinationLong },
+            1
+        );
+
+        //  console.log(distanceCal);
+        var distanceStr = '';
+        if (Number(distanceCal) > 1000) {
+            distanceStr += Math.round((Number(distanceCal) / 1000));
+            distanceStr += ' km away'
+        } else {
+            distanceStr = distanceCal
+            distanceStr += ' mtr away'
+        }
+
+
+        return resolve(distanceStr);
+
+    });
 }
 
 module.exports = app;

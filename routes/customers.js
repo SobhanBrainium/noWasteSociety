@@ -22,7 +22,7 @@ import bannerSchema from "../schema/Banner"
 import userAddressSchema from "../schema/Address"
 import cardSchema from "../schema/Card"
 import cartSchema from "../schema/Cart"
-import _ from "lodash"
+import _, { values, keys } from "lodash"
 
 let User = mongoose.model('User', userSchema)
 let OTPLog = mongoose.model('OTPLog', otpSchema)
@@ -2149,15 +2149,46 @@ customerAPI.get('/cardList', jwtTokenValidator.validateToken, async(req, res) =>
 customerAPI.get('/favoriteRestaurantsList', jwtTokenValidator.validateToken, async(req, res) => {
     try {
         const userData = req.user
+        const destLat = req.query.latitude;
+        const destLong = req.query.longitude;
+
         const favoriteLists = await vendorFavouriteSchema.find({customerId : userData._id})
         .populate('vendorId').sort({_id : -1})
 
         if(favoriteLists.length > 0){
+            let favoriteRestaurantLists = []
+
+            //#region get restaurant distance
+            for(let i = 0; i <favoriteLists.length; i++){
+                //#region get restaurant detail and distance
+                const getDetail = await vendorSchema.findById(favoriteLists[i].vendorId._id)
+                if(getDetail){
+                    const sourceLong = getDetail.location.coordinates[0];
+                    const sourceLat = getDetail.location.coordinates[1];
+
+                    const getDistance = await getDistanceinMtr(sourceLat, sourceLong, destLat, destLong)
+
+                    let responseObj = {};
+                    responseObj = {
+                        id: getDetail._id,
+                        name: getDetail.restaurantName,
+                        description: getDetail.description,
+                        logo: `${config.serverhost}:${config.port}/img/vendor/${getDetail.logo}`,
+                        rating: getDetail.rating,
+                        distance : getDistance
+                    };
+
+                    favoriteRestaurantLists.push(responseObj)
+                }
+                //#endregion
+            }
+            //#endregion
+
             return res.send({
                 success: true,
                 STATUSCODE: 200,
                 message: 'Favorite restaurant list fetch successfully.',
-                response_data: favoriteLists
+                response_data: favoriteRestaurantLists
             })
         }else{
             return res.send({
@@ -2168,6 +2199,7 @@ customerAPI.get('/favoriteRestaurantsList', jwtTokenValidator.validateToken, asy
             })
         }
     } catch (error) {
+        console.log(error)
         res.send({
             success: false,
             STATUSCODE: 500,
