@@ -212,7 +212,6 @@ app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req
         }
         
     } catch (error) {
-        console.log(error,'error')
         res.send({
             success: false,
             STATUSCODE: 500,
