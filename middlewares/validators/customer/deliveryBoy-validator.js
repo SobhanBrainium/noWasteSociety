@@ -52,4 +52,24 @@ module.exports = {
             next();
         }
     },
+
+    logout: async (req, res, next) => {
+        const userTypeVal = ["customer", "deliveryBoy", "vendorowner", "admin", "vendoradmin"];
+        const rules = joi.object({
+            customerId: joi.string().required().error(new Error('Customer id is required')),
+            loginId: joi.string().required().error(new Error('Login id is required')),
+            userType: joi.string().required().valid(...userTypeVal).error(new Error('Please send userType'))
+        });
+
+        const value = await rules.validate(req.body);
+        if (value.error) {
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: value.error.message
+            })
+        } else {
+            next();
+        }
+    },
 }

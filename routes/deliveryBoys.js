@@ -222,6 +222,40 @@ app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req
 })
 //#endregion
 
+//#region Logout */
+app.post('/logout', deliveryBoyJwtTokenValidator.validateToken, deliveryBoyValidator.logout, async(req, res) => {
+    try {
+        const data = req.body
+        if (data) {
+            const loginId = data.loginId;
+            const deleteDeviceLogin = await userDeviceLoginSchema.deleteOne({ _id: loginId })
+            if(deleteDeviceLogin){
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'User logged out Successfully',
+                    response_data: {}
+                })
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 400,
+                    message: 'Something went wrong.',
+                    response_data: {}
+                })
+            }
+        }
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        });
+    }
+})
+//#endregion
+
 //for generate auth token
 function generateToken(userData) {
     let payload = { subject: userData._id, user: 'CUSTOMER' };
