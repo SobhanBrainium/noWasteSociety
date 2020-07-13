@@ -6,6 +6,7 @@ import passport from "passport"
 import userSchema from "../../schema/User"
 import orderSchema from "../../schema/Order"
 import adminSchema from "../../schema/Admin"
+import vendorSchema from "../../schema/Vendor"
 
 //#region middleware
 import auth from "../../middlewares/auth"
@@ -55,13 +56,8 @@ adminAPI.get("/dashboard", auth, csrfProtection, async (req, res) => {
 
 adminAPI.get('/restaurant', auth, csrfProtection, async (req, res) => {
     // fetch restaurant admin details
-    const restaurantAdminDetail = await Admin.find({isActive : true, userType : 'restaurant'},{
-        _id : 1,
-        firstName : 1,
-        lastName : 1,
-        email : 1,
-        phone : 1
-    })
+    const restaurantAdminDetail = await vendorSchema.find({isActive : true})
+    .populate('managerName')
     .sort({_id : -1})
     // end
 
@@ -84,7 +80,6 @@ adminAPI.get('/restaurant/addAdmin', auth, csrfProtection,  async (req, res) => 
         errorMessage : errorMessage
     })
 }).post('/restaurant/addAdmin', auth,  csrfProtection, async(req, res) => {
-    console.log(req.body)
     try {
         const isExist = await Admin.findOne({
             $or : [{email : req.body.email}, {phone : req.body.mobileNumber}]
@@ -94,13 +89,12 @@ adminAPI.get('/restaurant/addAdmin', auth, csrfProtection,  async (req, res) => 
             req.flash('addRestaurantAdminMessage', 'Restaurant admin already exist with this email or phone,');
             res.redirect('/restaurant/addAdmin');
         }else{
-
             // add user to db and sent admin credential using email
             const generateRandomPassword = Math.random().toString().replace('0.', '').substr(0, 8)
-        
+            //#region add restaurant admin detail
             const adminObj = new Admin({
-                firstName : req.body.firstName,
-                lastName : req.body.lastName,
+                firstName : req.body.managerFirstName,
+                lastName : req.body.managerLastName,
                 email : req.body.email,
                 phone : req.body.mobileNumber,
                 password : generateRandomPassword,
@@ -109,11 +103,21 @@ adminAPI.get('/restaurant/addAdmin', auth, csrfProtection,  async (req, res) => 
             })
         
             const addedAdmin = await adminObj.save()
+            //#region 
+
+            //#region add restaurant detail
+            const addVendorObj = new vendorSchema({
+                restaurantName : req.body.restaurantName,
+                managerName : addedAdmin._id
+            })
+
+            const addVendor = await addVendorObj.save()
+            //#endregion
 
             // sent email with password
             mail('restaurantAdminWelcomeMail')(addedAdmin.email, addedAdmin, generateRandomPassword).send();
         
-            req.flash('addRestaurantAdminMessage', 'Admin has been added successfully.');
+            req.flash('addRestaurantAdminMessage', 'Restaurant admin has been added successfully.');
             res.redirect('/restaurant/addAdmin');
         }
 

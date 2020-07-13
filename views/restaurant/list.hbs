@@ -3,12 +3,12 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Restaurant Admin List</h1>
+            <h1>Restaurant List</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
               <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">Restaurant Admin List</li>
+              <li class="breadcrumb-item active">Restaurant List</li>
             </ol>
           </div>
         </div>
@@ -21,7 +21,7 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <a href="/restaurant/addAdmin"  class="btn btn-primary pull-right">Add restaurant admin</a>
+                            <a href="/restaurant/addAdmin"  class="btn btn-primary pull-right">Add restaurant</a>
                             <div class="clearfix"></div>
                         </div>
                         <!-- /.card-header -->
@@ -29,20 +29,22 @@
                             <table id="example2" class="table table-bordered table-hover">
                             <thead>
                             <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Email</th>
-                                <th>Phone Number</th>
+                                <th>Restaurant Name</th>
+                                <th>Manager First Name</th>
+                                <th>Manager Last Name</th>
+                                <th>Manager Email</th>
+                                <th>Manager Phone Number</th>
                                 <th>Action</th>
                             </tr>
                             </thead>
                             <tbody>
                                 {{#each list}}
                                     <tr>
-                                        <td>{{this.firstName}}</td>
-                                        <td>{{this.lastName}}</td>
-                                        <td>{{this.email}}</td>
-                                        <td>{{this.phone}}</td>
+                                        <td>{{this.restaurantName}}</td>
+                                        <td>{{this.managerName.firstName}}</td>
+                                        <td>{{this.managerName.lastName}}</td>
+                                        <td>{{this.managerName.email}}</td>
+                                        <td>{{this.managerName.phone}}</td>
                                         <td>{{this._id}}</td>
                                     </tr>
                                 {{/each}}
