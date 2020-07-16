@@ -3,12 +3,12 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Restaurant List</h1>
+            <h1>Item List</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
-              <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">Restaurant List</li>
+              <li class="breadcrumb-item"><a href="/vendor/dashboard">Home</a></li>
+              <li class="breadcrumb-item active">Item List</li>
             </ol>
           </div>
         </div>
@@ -33,32 +33,30 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <a href="/vendor/restaurant/add"  class="btn btn-primary pull-right">Add restaurant</a>
+                            <a href="/vendor/restaurant/item/add"  class="btn btn-primary pull-right">Add item</a>
                             <div class="clearfix"></div>
                         </div>
                         <!-- /.card-header -->
                         <div class="card-body">
-                            <table id="vendorRestaurantListTable" class="table table-bordered table-hover">
+                            <table id="vendorRestaurantItemListTable" class="table table-bordered table-hover">
                             <thead>
                             <tr>
                                 <th>Restaurant Name</th>
-                                <th>Restaurant Email</th>
-                                <th>Restaurant Phone Number</th>
-                                <th>Restaurant Address</th>
+                                <th>Item Name</th>
+                                <th>Item price</th>
                                 <th>Action</th>
                             </tr>
                             </thead>
                             <tbody>
                                 {{#each list}}
                                     <tr>
-                                        <td>{{this.restaurantName}}</td>
-                                        <td>{{this.contactEmail}}</td>
-                                        <td>{{this.contactPhone}}</td>
-                                        <td>{{this.address}}</td>
+                                        <td>{{this.vendorId.restaurantName}}</td>
+                                        <td>{{this.itemName}}</td>
+                                        <td>{{this.price}}</td>
                                         <td>
-                                            <a class="btn btn-primary tbl-common-btn" href="/vendor/restaurant/edit/{{this._id}}">Edit</a>
+                                            <a class="btn btn-primary tbl-common-btn" href="/vendor/restaurant/item/edit/{{this._id}}">Edit</a>
 
-                                            <a href='/vendor/restaurant/delete/{{this._id}}' class="btn btn-danger tbl-common-btn approve-req" >Delete</a>
+                                            <a href='/vendor/restaurant/item/delete/{{this._id}}' class="btn btn-danger tbl-common-btn approve-req" >Delete</a>
                                         </td>
                                     </tr>
                                 {{/each}}
@@ -66,9 +64,8 @@
                             <tfoot>
                                 <tr>
                                     <th>Restaurant Name</th>
-                                    <th>Restaurant Email</th>
-                                    <th>Restaurant Phone Number</th>
-                                    <th>Restaurant Address</th>
+                                    <th>Item Name</th>
+                                    <th>Item price</th>
                                     <th>Action</th>
                                 </tr>
                             </tfoot>
@@ -83,13 +80,13 @@
     </section>
 
 {{#content "admin_dashboard_script" mode="append"}}
-<script src="../../plugins/datatables/jquery.dataTables.min.js"></script>
-<script src="../../plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
-<script src="../../plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
+<script src="/plugins/datatables/jquery.dataTables.min.js"></script>
+<script src="/plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
+<script src="/plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
 <script>
 
     $(function () {
-        $('#vendorRestaurantListTable').DataTable({
+        $('#vendorRestaurantItemListTable').DataTable({
             "paging": true,
             "lengthChange": false,
             "searching": false,

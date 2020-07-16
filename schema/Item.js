@@ -2,8 +2,8 @@ var mongoose = require('mongoose');
 
 var itemSchema = new mongoose.Schema({
     itemName: { type: String, required: true },
-    categoryId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    vendorId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    categoryId: { type: mongoose.Schema.Types.ObjectId },
+    vendorId: { type: mongoose.Schema.Types.ObjectId, required: true, ref : 'Vendor' },
     type: { type: String, enum: ['VEG', 'NON VEG'] },
     description: { type: String, allow: '' },
     ingredients: { type: String, allow: '' },
@@ -11,7 +11,7 @@ var itemSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     waitingTime: { type: Number, required: true },
     menuImage: { type: String, allow: ''},
-    isActive: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
 }, {
     timestamps: true
 });

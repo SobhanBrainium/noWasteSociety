@@ -1,0 +1,186 @@
+
+
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <div class="container-fluid">
+    <div class="row mb-2">
+        <div class="col-sm-6">
+        <h1>Restaurant Item Edit</h1>
+        </div>
+        <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="/vendor/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/vendor/restaurant/item/list">Restaurant Item List</a></li>
+            <li class="breadcrumb-item active">Restaurant Item Edit</li>
+        </ol>
+        </div>
+    </div>
+    </div><!-- /.container-fluid -->
+</section>
+
+{{#if message}}
+    <div class="alert alert-success">
+        {{message}}
+    </div>
+{{/if}}
+
+{{#if errorMessage}}
+    <div class="alert alert-danger">
+        {{errorMessage}}
+    </div>
+{{/if}}
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- left column -->
+            <div class="col-md-6">
+            <!-- general form elements -->
+            <div class="card card-primary">
+                <div class="card-header">
+                <h3 class="card-title">Edit Restaurant Item</h3>
+                </div>
+                <!-- /.card-header -->
+                <!-- form start -->
+                <form role="form" id="restaurantItemEditForm" action="javascript:void(0)" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+                    <input type="hidden" name="itemId" value="{{item._id}}"
+                    <div class="card-body">
+                        {{!-- <div class="form-group">
+                            <label for="exampleInputEmail1">Choose Restaurant</label>
+                            <select id="restaurantOption" name="restaurantOption" class="form-control" required>
+                                <option value="">Select Restaurant</option>
+                                {{#each restaurant}}
+                                <option value="{{this._id}}">{{this.restaurantName}}</option>
+                                {{/each}}
+                            </select>
+                        </div> --}}
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Item Name</label>
+                            <input type="text" id="itemName" name="itemName" class="form-control"  placeholder="Enter Item Name" value="{{item.itemName}}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Item Description</label>
+                            <input type="text" id="itemDescription" name="itemDescription" class="form-control"  placeholder="Enter Item Description" value="{{item.description}}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Item Price</label>
+                            <input type="number" class="form-control" id="itemPrice" name="itemPrice" placeholder="Enter Item Price" value="{{item.price}}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Item Waiting Time</label>
+                            <input type="number" class="form-control" id="itemWaitingTime" name="itemWaitingTime" placeholder="Enter item waiting time." value="{{item.waitingTime}}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Item Image</label>
+                            <input type="file" class="form-control" id="itemImage" name="itemImage" placeholder="Choose item image">
+
+                            {{#if item.menuImage}}
+                            <div class="">
+                                <img src="/img/item/{{item.menuImage}}" width="50" height="50">
+                            </div>
+                            {{/if}}
+                        </div>
+                    </div>
+                    <!-- /.card-body -->
+
+                    <div class="card-footer">
+                        <button type="submit" id="restaurantItemEditFormSubmit" class="btn btn-primary">Edit</button>
+
+                        <button type="reset" class="btn btn-primary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            </div>
+        </div>
+    </div>
+</section>
+
+{{#content "admin_dashboard_script" mode="append"}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
+<script type="text/javascript">
+    jQuery(document).ready(function(){
+        $(".alert").fadeTo(2000, 500).slideUp(500, function(){
+            $(".alert").slideUp(500);
+        });
+
+        $("#restaurantItemEditFormSubmit").on('click', function () {
+            let valid = $("#restaurantItemEditForm").valid();
+            if(valid){
+                const form_data = new FormData($('#restaurantItemEditForm')[0]);
+                $.ajax({
+                    type : "POST",
+                    url : '/vendor/restaurant/item/edit/submit',
+                    data : form_data,
+					processData : false,
+	                contentType : false,
+                    success: function (resp) {
+						if(resp.status === 200) {
+							sweetAlertAboutUsSuccessPopUp("Update!", resp.message, "/vendor/restaurant/item/list");
+						}else{
+                            sweetAlertAboutUsSuccessPopUp("Failed.", resp.message, "/vendor/restaurant/item/list");
+                        }
+					}
+                })
+            }
+        });
+
+        $("#restaurantItemEditForm").validate({
+            rules:{
+                restaurantOption:{
+                    required: true
+                },
+                itemName:{
+                    required: true
+                },
+                itemDescription : {
+                    required: true
+                },
+                itemPrice:{
+                    required: true
+                },
+                itemWaitingTime:{
+                    required: true
+                }
+            },
+            messages:{
+                restaurantOption:{
+                    required: "<font color='red'>Please choose restaurant name.</font>"
+                },
+                itemName:{
+                    required: "<font color='red'>Please enter item name.</font>"
+                },
+                 itemDescription : {
+                    required: "<font color='red'>Please enter item description.</font>"
+                },
+                itemPrice:{
+                    required: "<font color='red'>Please enter item price.</font>"
+                },
+                itemWaitingTime:{
+                    required: "<font color='red'>Please enter item waiting time.</font>"
+                }
+            }
+        });
+
+        function sweetAlertAboutUsSuccessPopUp (title='',text='', redirect_link='') {
+            swal({
+                title: title,
+                text: text,
+                type: "success",
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "OK"
+            },  function() {
+                window.location.href = redirect_link;
+            });
+        }
+    })
+</script>
+
+{{/content}}
+
+

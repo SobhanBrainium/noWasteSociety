@@ -203,7 +203,7 @@ app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req
             const destLat = req.query.latitude;
             const destLong = req.query.longitude;
 
-            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({})
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find()
             .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
             .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
             .populate({
@@ -337,6 +337,162 @@ app.get('/orderDetail', deliveryBoyJwtTokenValidator.validateToken, async (req, 
             response_data: {}
         })
     }
+})
+//#endregion
+
+//#region completed order list
+app.get('/completedOrderList', deliveryBoyJwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const data = req.query
+        if(data){
+            const userData = req.user
+            const destLat = req.query.latitude;
+            const destLong = req.query.longitude;
+
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryStatus : 3})
+            .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
+            .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
+            .populate({
+                path : "orderId",
+                select : {
+                    cartDetail : 1, orderTime : 1, orderType : 1, deliveryPreference : 1, price : 1, discount : 1, finalPrice : 1, orderNo : 1, estimatedDeliveryTime : 1, _id : 0
+                },
+                populate : {
+                    path : "cartDetail",
+                    select : {
+                        _id : 0, item : 1
+                    },
+                    populate : {
+                        path : "item.itemId",
+                        select : {
+                            itemName : 1, menuImage : 1, _id : 0
+                        }
+                    }
+                }
+            })
+            .populate('deliveryAddressId')
+
+            if(fetchAssignOrders.length > 0){
+                let finalOrderList = []
+
+                for(let i = 0; i < fetchAssignOrders.length; i++ ){
+                    const vendorDetail = fetchAssignOrders[i].vendorId
+                    const sourceLong = vendorDetail.location.coordinates[0];
+                    const sourceLat = vendorDetail.location.coordinates[1];
+
+                    const restaurantDistanceFromDeliveryBoy = await getDistanceinMtr(sourceLat, sourceLong, destLat, destLong)
+
+                    const assignResponse = {
+                        ...fetchAssignOrders[i].toObject(),
+                        restaurantDistanceFromDeliveryBoy
+                    }
+
+                    finalOrderList.push(assignResponse)
+                }
+
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: `You have successfully delivered ${finalOrderList.length} orders to customer. `,
+                    response_data: finalOrderList
+                })
+
+            }else{
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'No order found.',
+                    response_data: []
+                })
+            }
+        }
+        
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }  
+})
+//#endregion
+
+//#region pending order list
+app.get('/pendingOrderList', deliveryBoyJwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const data = req.query
+        if(data){
+            const userData = req.user
+            const destLat = req.query.latitude;
+            const destLong = req.query.longitude;
+
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryStatus : 1})
+            .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
+            .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
+            .populate({
+                path : "orderId",
+                select : {
+                    cartDetail : 1, orderTime : 1, orderType : 1, deliveryPreference : 1, price : 1, discount : 1, finalPrice : 1, orderNo : 1, estimatedDeliveryTime : 1, _id : 0
+                },
+                populate : {
+                    path : "cartDetail",
+                    select : {
+                        _id : 0, item : 1
+                    },
+                    populate : {
+                        path : "item.itemId",
+                        select : {
+                            itemName : 1, menuImage : 1, _id : 0
+                        }
+                    }
+                }
+            })
+            .populate('deliveryAddressId')
+
+            if(fetchAssignOrders.length > 0){
+                let finalOrderList = []
+
+                for(let i = 0; i < fetchAssignOrders.length; i++ ){
+                    const vendorDetail = fetchAssignOrders[i].vendorId
+                    const sourceLong = vendorDetail.location.coordinates[0];
+                    const sourceLat = vendorDetail.location.coordinates[1];
+
+                    const restaurantDistanceFromDeliveryBoy = await getDistanceinMtr(sourceLat, sourceLong, destLat, destLong)
+
+                    const assignResponse = {
+                        ...fetchAssignOrders[i].toObject(),
+                        restaurantDistanceFromDeliveryBoy
+                    }
+
+                    finalOrderList.push(assignResponse)
+                }
+
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: `${finalOrderList.length} orders are pending for delivered. `,
+                    response_data: finalOrderList
+                })
+
+            }else{
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: 'No order found.',
+                    response_data: []
+                })
+            }
+        }
+        
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }  
 })
 //#endregion
 

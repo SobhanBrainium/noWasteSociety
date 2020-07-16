@@ -3,11 +3,13 @@ import mongoose from "mongoose"
 import csrf from "csurf"
 import passport from "passport"
 import multer from "multer"
+import _ from "lodash"
 
 import userSchema from "../../schema/User"
 import orderSchema from "../../schema/Order"
 import adminSchema from "../../schema/Admin"
 import vendorSchema from "../../schema/Vendor"
+import itemSchema from "../../schema/Item"
 
 //#region middleware
 import auth from "../../middlewares/auth"
@@ -27,6 +29,7 @@ const Admin = mongoose.model('Admin', adminSchema)
 const mail = require('../../modules/sendEmail');
 
 //#region image upload with multer
+//#region restaurant image upload
 const restaurantAdd_storage = multer.diskStorage({
     destination: function (req, file, cb) {
       cb(null, 'public/img/vendor');
@@ -51,6 +54,21 @@ const restrictImgType = function(req, file, cb) {
 };
 
 const addRestaurant = multer({ storage: restaurantAdd_storage, limits: {fileSize:3000000, fileFilter:restrictImgType} });
+//#endregion
+//#region item image upload
+const restaurantItemAdd_storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, 'public/img/item');
+    },
+    filename: function (req, file, cb) {
+      const fileExt = file.mimetype.split('/')[1];
+      
+      const fileName = req.user._id + '-' + Date.now() + '.' + fileExt;
+      cb(null, fileName);
+    }
+});
+const addItemImage = multer({ storage: restaurantItemAdd_storage, limits: {fileSize:3000000, fileFilter:restrictImgType} });
+//#endregion
 //#endregion
 
 adminAPI.get('/', csrfProtection ,(req, res) => {
@@ -148,12 +166,12 @@ adminAPI.get('/admin/restaurant/addAdmin', auth, csrfProtection,  async (req, re
             //#region 
 
             //#region add restaurant detail
-            const addVendorObj = new vendorSchema({
-                restaurantName : req.body.restaurantName,
-                managerName : addedAdmin._id
-            })
+            // const addVendorObj = new vendorSchema({
+            //     restaurantName : req.body.restaurantName,
+            //     managerName : addedAdmin._id
+            // })
 
-            const addVendor = await addVendorObj.save()
+            // const addVendor = await addVendorObj.save()
             //#endregion
 
             // sent email with password
@@ -196,6 +214,72 @@ adminAPI.get('/vendor/restaurant', auth, csrfProtection, async (req, res) => {
         errorMessage : errorMessage,
         message : successMessage
     })
+})
+
+adminAPI.get('/vendor/restaurant/add', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    res.render('vendor/restaurant/add', {
+        layout : "adminDashboardView",
+        title : "Restaurant Add",
+        csrfToken: req.csrfToken(),
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
+adminAPI.post('/vendor/restaurant/add/submit/', auth, addRestaurant.fields([{name: 'licenceImage', maxCount: 1},{name: 'banner', maxCount: 1},{name: 'logo', maxCount: 1 }]), async (req, res) => {
+    const restaurantAdmin = req.user._id
+
+    let licenceImage, banner, logo
+
+    if (req.files.licenceImage && req.files.licenceImage.length > 0){
+        licenceImage = req.files.licenceImage[0].filename;
+    }else{
+        licenceImage = ''
+    }
+
+    if (req.files.banner && req.files.banner.length > 0){
+        banner = req.files.banner[0].filename;
+    }else{
+        banner = ''
+    }
+
+    if (req.files.logo && req.files.logo.length > 0){
+        logo = req.files.logo[0].filename;
+    }else{
+        logo = ''
+    }
+
+    const addRestaurant = new vendorSchema({
+        restaurantName : req.body.restaurantName,
+        managerName : restaurantAdmin,
+        description : req.body.restaurantDescription,
+        contactEmail : req.body.contactEmail,
+        contactPhone : req.body.contactPhone,
+        address : req.body.restaurantAddress,
+        logo : logo,
+        banner : banner,
+        licenceImage : licenceImage,
+        location: {
+            type: 'Point',
+            coordinates: [88.444899,22.599331]
+        },
+    })
+    const addedData = await addRestaurant.save()
+    if(addedData){
+        return res.json({
+            status : 200,
+            message : "Restaurant has been successfully added."
+        })
+    }else{
+        return res.json({
+            status : 400,
+            message : "added failed."
+        })
+    }
+
 })
 
 adminAPI.get('/vendor/restaurant/edit/:id', auth, csrfProtection, async (req, res) => {
@@ -284,6 +368,182 @@ adminAPI.get('/vendor/restaurant/delete/:restaurantId', auth, async (req, res) =
         res.redirect('/vendor/restaurant')
     }
 })
+
+adminAPI.get('/vendor/restaurant/item/list', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const restaurantAdminDetail = req.user
+
+    const getRestaurantListOfLoggedInAdmin = await vendorSchema.find({isActive : true, managerName : restaurantAdminDetail._id},{_id : 1}).sort({_id : -1})
+
+    if(getRestaurantListOfLoggedInAdmin.length > 0){
+        let finalItemArray = []
+
+        for(let i = 0; i < getRestaurantListOfLoggedInAdmin.length; i++){
+            const restaurantId = getRestaurantListOfLoggedInAdmin[i]._id
+
+            const getItemList = await itemSchema.find({vendorId : restaurantId, isActive : true}).sort({_id : -1}).populate('vendorId')
+
+            if(getItemList.length > 0){
+                for(let j = 0; j < getItemList.length; j++){
+
+                    finalItemArray.push(getItemList[j])
+                }
+            }
+        }
+
+        res.render('vendor/item/list',{
+            layout : "adminDashboardView",
+            title : "Item List",
+            csrfToken: req.csrfToken(),
+            list : finalItemArray,
+            errorMessage : errorMessage,
+            message : successMessage
+        })
+    }else{
+        req.flash('Error', 'No restaurant found.')
+        res.render('vendor/item/list',{
+            layout : "adminDashboardView",
+            title : "Item List",
+            csrfToken: req.csrfToken(),
+            list : '',
+            errorMessage : errorMessage,
+            message : successMessage
+        })
+    }
+})
+
+adminAPI.get('/vendor/restaurant/item/add', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const getAllRestaurantName = await vendorSchema.find({isActive : true, managerName : req.user._id}, {_id : 1, restaurantName : 1})
+    .sort({_id : -1})
+
+    res.render('vendor/item/add',{
+        layout : "adminDashboardView",
+        title : "Item Add",
+        csrfToken: req.csrfToken(),
+        restaurant : getAllRestaurantName,
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
+adminAPI.post('/vendor/restaurant/item/add/submit', auth, addItemImage.single('itemImage'), async (req, res) => {
+    const restaurantAdminDetail = req.user
+    const data = req.body
+    if(data){
+        const itemImage = req.file.filename
+
+        const addItemObj = new itemSchema({
+            itemName : data.itemName,
+            vendorId : data.restaurantOption,
+            description : data.itemDescription,
+            price : data.itemPrice,
+            waitingTime : data.itemWaitingTime,
+            menuImage : itemImage
+        })
+
+        const addedResponse = await addItemObj.save()
+
+        if(addedResponse){
+            return res.json({
+                status : 200,
+                message : "Restaurant item has successfully added."
+            })
+        }else{
+            return res.json({
+                status : 400,
+                message : "Added failed."
+            })
+        }
+    }
+})
+
+adminAPI.get('/vendor/restaurant/item/delete/:itemId', auth, csrfProtection, async (req, res) => {
+    const itemId = req.params.itemId
+
+    const isExist = await itemSchema.findById(itemId)
+
+    if(isExist){
+        const deletedRestaurant = await itemSchema.remove({_id : isExist._id})
+        if(deletedRestaurant){
+            req.flash('Success', 'Restaurant item deleted successfully.')
+            res.redirect('/vendor/restaurant/item/list')
+        }
+    }else{
+        req.flash('Error', 'Restaurant item deleted failed.')
+        res.redirect('/vendor/restaurant/item/list')
+    }
+})
+
+adminAPI.get('/vendor/restaurant/item/edit/:itemId', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const getItemDetail = await itemSchema.findById(req.params.itemId)
+
+    res.render('vendor/item/edit', {
+        layout : "adminDashboardView",
+        title : "Item Edit",
+        csrfToken: req.csrfToken(),
+        item : getItemDetail,
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
+adminAPI.post('/vendor/restaurant/item/edit/submit', auth, addItemImage.single('itemImage'), async(req, res) => {
+    const data = req.body
+    if(data){
+
+        const isExist = await itemSchema.findById(data.itemId)
+    
+        if(isExist){
+    
+            let itemImageName = ''
+            if(req.file){
+                itemImageName = req.file.filename
+            }else{
+                itemImageName = isExist.menuImage
+            }
+
+            // update data
+            isExist.itemName = data.itemName,
+            isExist.description = data.itemDescription,
+            isExist.price = data.itemPrice,
+            isExist.waitingTime = data.itemWaitingTime,
+            isExist.menuImage = itemImageName
+
+            const updatedResult = await isExist.save()
+
+            if(updatedResult){
+                return res.json({
+                    status : 200,
+                    message : "Restaurant item has been updated successfully."
+                })
+            }else{
+                return res.json({
+                    status : 400,
+                    message : "Updated failed."
+                })
+            }
+        }else{
+            return res.json({
+                status : 400,
+                message : "No item found."
+            })
+        }
+    }else{
+        return res.json({
+            status : 400,
+            message : "No data selected."
+        })
+    }
+})
+
 //#endregion
 
 adminAPI.get("/logout", async(req, res) => {
