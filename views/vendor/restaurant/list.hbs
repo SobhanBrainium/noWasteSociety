@@ -15,25 +15,32 @@
       </div><!-- /.container-fluid -->
     </section>
 
+    {{#if message}}
+        <div class="alert alert-success">
+            {{message}}
+        </div>
+    {{/if}}
+
+    {{#if errorMessage}}
+        <div class="alert alert-danger">
+            {{errorMessage}}
+        </div>
+    {{/if}}
+
     <section class="content">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
                     <div class="card">
-                        <div class="card-header">
-                            <a href="/admin/restaurant/addAdmin"  class="btn btn-primary pull-right">Add restaurant</a>
-                            <div class="clearfix"></div>
-                        </div>
                         <!-- /.card-header -->
                         <div class="card-body">
-                            <table id="example2" class="table table-bordered table-hover">
+                            <table id="vendorRestaurantListTable" class="table table-bordered table-hover">
                             <thead>
                             <tr>
                                 <th>Restaurant Name</th>
-                                <th>Manager First Name</th>
-                                <th>Manager Last Name</th>
-                                <th>Manager Email</th>
-                                <th>Manager Phone Number</th>
+                                <th>Restaurant Email</th>
+                                <th>Restaurant Phone Number</th>
+                                <th>Restaurant Address</th>
                                 <th>Action</th>
                             </tr>
                             </thead>
@@ -41,20 +48,23 @@
                                 {{#each list}}
                                     <tr>
                                         <td>{{this.restaurantName}}</td>
-                                        <td>{{this.managerName.firstName}}</td>
-                                        <td>{{this.managerName.lastName}}</td>
-                                        <td>{{this.managerName.email}}</td>
-                                        <td>{{this.managerName.phone}}</td>
-                                        <td>{{this._id}}</td>
+                                        <td>{{this.contactEmail}}</td>
+                                        <td>{{this.contactPhone}}</td>
+                                        <td>{{this.address}}</td>
+                                        <td>
+                                            <a class="btn btn-primary tbl-common-btn" href="/vendor/restaurant/edit/{{this._id}}">Edit</a>
+
+                                            <a href='/vendor/restaurant/delete/{{this._id}}' class="btn btn-danger tbl-common-btn approve-req" >Delete</a>
+                                        </td>
                                     </tr>
                                 {{/each}}
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <th>First Name</th>
-                                    <th>Last Name</th>
-                                    <th>Email</th>
-                                    <th>Phone Number</th>
+                                    <th>Restaurant Name</th>
+                                    <th>Restaurant Email</th>
+                                    <th>Restaurant Phone Number</th>
+                                    <th>Restaurant Address</th>
                                     <th>Action</th>
                                 </tr>
                             </tfoot>
@@ -73,8 +83,9 @@
 <script src="../../plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
 <script src="../../plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
 <script>
+
     $(function () {
-        $('#example2').DataTable({
+        $('#vendorRestaurantListTable').DataTable({
             "paging": true,
             "lengthChange": false,
             "searching": false,

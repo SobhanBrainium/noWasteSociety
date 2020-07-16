@@ -5,6 +5,7 @@ let UserAddress = mongoose.model('UserAddress', userAddressSchema)
 
 var orderSchema = new mongoose.Schema({
     vendorId: { type: mongoose.Schema.Types.ObjectId, required: true},
+    cartDetail: { type: mongoose.Schema.Types.ObjectId, required: true, ref : "Cart"},
     orderNo: {type: String, required: true, unique: true},
     orderTime: {type: Date, required: true, default: new Date()},
     orderDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: 'OrderDetail' }],

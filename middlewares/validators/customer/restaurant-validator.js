@@ -71,7 +71,7 @@ module.exports = {
             appType: joi.string().required().valid(...appTypeVal).error(new Error('App type required')),
             vendorId: joi.string().required().error(new Error('vendor Id is required')),
             addressId: joi.string().required().error(new Error('Delivery address is required')),
-            
+            cartId: joi.string().required().error(new Error('cartId is required')),
             userType: joi.string().valid(...userType).error(new Error('Please send userType')),
             deliveryPreference : joi.string().valid(...deliveryPreferenc).required().error(new Error('Please send deliveryPreference')),
             orderType: joi.string().required().error(new Error('Please send orderType')),

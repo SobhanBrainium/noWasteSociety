@@ -10,9 +10,17 @@
                 <strong>Error! </strong>{{message}}
             </div>
         {{/if}}
-      <form action="/" method="POST" name="admin_login_form" id="admin_login_form">
+      <form action="/login" method="POST" name="admin_login_form" id="admin_login_form">
         <input type="hidden" name="_csrf" value="{{csrfToken}}">
-        <input type="hidden" name="userType" value="admin">
+        <div class="input-group mb-3">
+            <select name="loginType" id="loginType" class="form-control">
+              <option value = ""> Select login type </option>
+              <option value = "admin"> Admin </option>
+              <option value = "restaurant"> Restaurant </option>
+            </select>
+        </div>
+        <label id="loginType-error" class="error" for="loginType"></label>
+
         <div class="input-group mb-3">
             <input type="email" class="form-control" placeholder="Email" name="email" id="email">
             <div class="input-group-append">
@@ -65,6 +73,9 @@
 			});
 			$('#admin_login_form').validate({
 				rules:{
+          loginType : {
+            required: true
+          },
 					email:{
 						required: true
 					},
@@ -73,6 +84,9 @@
 					}
 				},
 				messages:{
+          loginType : {
+            required: "<font color = 'red'>Select login type.</font>"
+          },
 					email:{
 						required: "<font color = 'red'>Please enter your email id.</font>"
 					},

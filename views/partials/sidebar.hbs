@@ -1,7 +1,7 @@
 <!-- Main Sidebar Container -->
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
-    <a href="/dashboard" class="brand-link">
+    <a href="/admin/dashboard" class="brand-link">
       <img src="/img/siteLogo.png" alt="No Waste Society" class="brand-image img-circle elevation-3"
            style="opacity: .8">
       <span class="brand-text font-weight-light">No Waste Society</span>
@@ -25,13 +25,15 @@
           <!-- Add icons to the links using the .nav-icon class
                with font-awesome or any other icon font library -->
           <li class="nav-item has-treeview">
-            <a href="/dashboard" class="nav-link {{#if_eq client_url "dashboard" }} active {{/if_eq}}">
+            <a href="/admin/dashboard" class="nav-link {{#if_eq client_url "dashboard" }} active {{/if_eq}}">
               <i class="nav-icon fas fa-tachometer-alt"></i>
               <p>
                 Dashboard
               </p>
             </a>
           </li>
+
+          {{#if_eq user.userType 'admin'}}
 
           <li class="nav-item has-treeview {{#if_eq client_url "restaurant" }} menu-open {{/if_eq}}">
             <a href="#" class="nav-link {{#if_eq client_url "restaurant" }} active {{/if_eq}}">
@@ -42,13 +44,34 @@
             </a>
             <ul class="nav nav-treeview">
               <li class="nav-item">
-                <a href="/restaurant" class="nav-link">
+                <a href="/admin/restaurant" class="nav-link">
                   <i class="far fa-circle nav-icon"></i>
                   <p>List of restaurant</p>
                 </a>
               </li>
             </ul>
           </li>
+
+          {{/if_eq}}
+
+          {{#if_eq user.userType 'restaurant'}}
+          <li class="nav-item has-treeview {{#if_eq client_url "restaurant" }} menu-open {{/if_eq}}">
+            <a href="#" class="nav-link {{#if_eq client_url "restaurant" }} active {{/if_eq}}">
+              <i class="nav-icon fas fa-cutlery"></i>
+              <p>
+                Restaurant
+              </p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="/vendor/restaurant" class="nav-link">
+                  <i class="far fa-circle nav-icon"></i>
+                  <p>List of restaurant</p>
+                </a>
+              </li>
+            </ul>
+          </li>
+          {{/if_eq}}
 
           <li class="nav-item has-treeview">
               <a href="/logout" class="nav-link">

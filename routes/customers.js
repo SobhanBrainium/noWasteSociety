@@ -1245,8 +1245,36 @@ customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurant
 
                                 //Get Item Details
                                 var restaurantItemDetails = await restaurantCategoryItem(vendorId);
-
                                 if (restaurantItemDetails != 'err') {
+                                    
+                                    //#region check item of ths restaurant is exist in cart or not.
+                                    const fetchPendingCart = await Cart.findOne({userId : req.user._id, status : 'Y', isCheckout : 1})
+                                    //#endregion
+                                    
+                                    for(let i = 0; i < restaurantItemDetails.item.length; i++){
+                                        const itemId = restaurantItemDetails.item[i].itemId.toString()
+                                        
+                                        let cartItemQuantity = 0
+                                        if(fetchPendingCart){
+                                            for(let j = 0; j < fetchPendingCart.item.length; j++){
+                                                if(fetchPendingCart.item[j].itemId.toString() == itemId){
+                                                    cartItemQuantity = fetchPendingCart.item[j].itemQuantity
+
+                                                    restaurantItemDetails.item[i] = {
+                                                        ...restaurantItemDetails.item[i],
+                                                        cartItemQuantity
+                                                    }
+                                                }
+                                            }
+                                            
+                                        }
+                                        restaurantItemDetails.item[i] = {
+                                            ...restaurantItemDetails.item[i],
+                                            cartItemQuantity
+                                        }
+                                        
+                                    }
+
                                     responseDt.catitem = restaurantItemDetails;
 
                                     res.send({
@@ -1386,7 +1414,11 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
                     isUserExist.item.unshift(itemObj)
                     isUserExist.cartTotal = parseFloat(isUserExist.cartTotal + itemObj.itemTotal)
 
-                    const result = await isUserExist.save()
+                    const addNewItemObject = await isUserExist.save()
+
+                    const result = await Cart.findOne({userId : req.user._id, _id : addNewItemObject._id, status : 'Y'})
+                    .populate('vendorId', {_id : 0, restaurantName : 1,  })
+                    .populate('item.itemId', {_id : 1, menuImage : 1, itemName : 1  })
 
                     return res.json({
                         success: true,
@@ -1412,8 +1444,12 @@ customerAPI.post('/addToCart', jwtTokenValidator.validateToken, async (req, res)
                     item : itemObj,
                     cartTotal : parseFloat(itemObj.itemTotal)
                 })
-                const result = await itemAddedObj.save()
+                const cartObject = await itemAddedObj.save()
 
+                const result = await Cart.findOne({userId : req.user._id, _id : cartObject._id, status : 'Y'})
+                .populate('vendorId', {_id : 0, restaurantName : 1,  })
+                .populate('item.itemId', {_id : 1, menuImage : 1, itemName : 1  })
+                
                 return res.json({
                     success: true,
                     STATUSCODE : 200,
@@ -1487,7 +1523,7 @@ customerAPI.get('/fetchCart', jwtTokenValidator.validateToken, async (req, res) 
     try {
         const fetchCartList = await Cart.findOne({userId : req.user._id, status : 'Y'})
         .populate('vendorId', {_id : 0, restaurantName : 1,  })
-        .populate('item.itemId', {_id : 0, menuImage : 1, itemName : 1  })
+        .populate('item.itemId', {_id : 1, menuImage : 1, itemName : 1  })
 
         if(fetchCartList){
             _.forEach(fetchCartList.item, (itemValue) => {
@@ -1527,7 +1563,7 @@ customerAPI.post('/updateCartItem', jwtTokenValidator.validateToken, customerVal
             const isCartExist = await Cart.findById(data.cartId)
             if(isCartExist){
                 // find cart item
-                const isCartItemExist = _.filter(isCartExist.item, product => product._id == data.itemId)
+                const isCartItemExist = _.filter(isCartExist.item, product => product.itemId == data.itemId)
 
                 if(isCartItemExist.length > 0){
                     const itemQuantity = data.itemQuantity
@@ -1548,7 +1584,7 @@ customerAPI.post('/updateCartItem', jwtTokenValidator.validateToken, customerVal
 
                         const fetchCartList = await Cart.findOne({userId : req.user._id, _id : data.cartId, status : 'Y'})
                         .populate('vendorId', {_id : 0, restaurantName : 1,  })
-                        .populate('item.itemId', {_id : 0, menuImage : 1, itemName : 1  })
+                        .populate('item.itemId', {_id : 1, menuImage : 1, itemName : 1  })
 
                         _.forEach(fetchCartList.item, (itemValue) => {
                             itemValue.itemId.menuImage =  `${config.serverhost}:${config.port}/img/item/` + itemValue.itemId.menuImage
@@ -1602,7 +1638,7 @@ customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerVal
         if(data){
             const isExist = await Cart.findOne({_id : data.cartId, userId : req.user._id, isCheckout : 1})
             if(isExist){
-                const itemDetail = _.filter(isExist.item, product => product._id == data.itemId)
+                const itemDetail = _.filter(isExist.item, product => product.itemId == data.itemId)
 
                 // remove item
                 const removedData = await Cart.update({_id : data.cartId},{
@@ -1619,7 +1655,7 @@ customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerVal
 
                 let updatedCart = await Cart.findOne({userId : req.user._id, _id : data.cartId})
                 .populate('vendorId', {_id : 0, restaurantName : 1,  })
-                .populate('item.itemId', {_id : 0, menuImage : 1, itemName : 1  })
+                .populate('item.itemId', {_id : 1, menuImage : 1, itemName : 1  })
         
                 _.forEach(updatedCart.item, (itemValue) => {
         
@@ -1664,232 +1700,242 @@ customerAPI.post('/removeCartItem', jwtTokenValidator.validateToken, customerVal
 //#endregion
 
 //#region  Order Submit */
-customerAPI.post('/postOrder',jwtTokenValidator.validateToken,restaurantValidator.postOrderValidator, async (req, res) => {
+customerAPI.post('/postOrder',jwtTokenValidator.validateToken, restaurantValidator.postOrderValidator, async (req, res) => {
     try {
         const data = req.body
         if (data) {
    
-            var vendorId = data.vendorId;
-            var items = data.items;
-            var latt = data.latitude;
-            var long = data.longitude;
-            var appType = data.appType;
+            const vendorId = data.vendorId;
+            const cartId = data.cartId
+            const items = data.items;
+            const latt = data.latitude;
+            const long = data.longitude;
+            const appType = data.appType;
 
-            var checkJson = false
+            // check cart cartId is exit or not
+            const isCartExist = await Cart.findOne({userId : req.user._id, _id : cartId, isCheckout : 1, status : 'Y'})
 
-            if(appType == 'ANDROID') {
-                var checkJson = isJson(items);
-            } else {
-                checkJson = true;
-            }
-            
+            if(isCartExist){
+                // already booked order with this cart id or not
+                const isCartBooked = await orderSchema.findOne({customerId : req.user._id, cartDetail : cartId})
 
-            // console.log(checkJson);
-            // console.log(appType);
-            // console.log(items);
+                if(isCartBooked){
+                    res.send({
+                        success: false,
+                        STATUSCODE: 400,
+                        message: 'You have already booked this cart item.',
+                        response_data: {}
+                    });
+                }else{
+                    var checkJson = false
 
-            var checkJson = true;
-
-            if (checkJson == true) {
-
-                //  var itemObj = JSON.parse(items);
-
-                if(appType == 'ANDROID') {
-                    var itemObj = JSON.parse(items);
-                } else {
-                    var itemObj = items;
-                }
-
-                
-                // console.log(itemObj);
-                var errorCheck = 0;
-                var orderDetailsItm = [];
-                var itemsIdArr = [];
-                console.log(itemObj,'itemObj')
-                for (let item of itemObj) {
-                    console.log("jello")
-                    var orderDetailsItmObj = {};
-                    if ((item.name == undefined) || (item.name == '') || (item.quantity == undefined) || (item.quantity == '') || (item.price == undefined) || (item.price == '') || (item.itemId == undefined) || (item.itemId == '')) {
-                        errorCheck++;
+                    if(appType == 'ANDROID') {
+                        var checkJson = isJson(items);
                     } else {
-                        //Items Check
-                        itemsIdArr.push(item.itemId);
-
-                        orderDetailsItmObj.item = item.name;
-                        orderDetailsItmObj.quantity = item.quantity;
-                        orderDetailsItmObj.itemPrice = item.price;
-                        orderDetailsItmObj.totalPrice = (Number(item.price) * Number(item.quantity));
-                        orderDetailsItm.push(orderDetailsItmObj);
+                        checkJson = true;
                     }
-                    // console.log(item.name);
-                    // console.log(item.quantity);
-                    // console.log(item.price);
-                }
 
-                if (errorCheck == 0) {
+                    var checkJson = true;
 
-                    vendorSchema.findOne({
-                        _id: vendorId,
-                        location: {
-                            $near: {
-                                $maxDistance: config.restaurantSearchDistance,
-                                $geometry: {
-                                    type: "Point",
-                                    coordinates: [long, latt]
-                                }
-                            }
-                        },
-                        isActive: true
-                    })
-                        .exec(async function (err, results) {
-                            if (err) {
-                                res.send({
-                                    success: false,
-                                    STATUSCODE: 500,
-                                    message: 'Internal DB error',
-                                    response_data: {}
-                                });
+                    if (checkJson == true) {
+
+                        if(appType == 'ANDROID') {
+                            var itemObj = JSON.parse(items);
+                        } else {
+                            var itemObj = items;
+                        }
+
+                        var errorCheck = 0;
+                        var orderDetailsItm = [];
+                        var itemsIdArr = [];
+
+                        for (let item of itemObj) {
+
+                            var orderDetailsItmObj = {};
+                            if ((item.name == undefined) || (item.name == '') || (item.quantity == undefined) || (item.quantity == '') || (item.price == undefined) || (item.price == '') || (item.itemId == undefined) || (item.itemId == '')) {
+                                errorCheck++;
                             } else {
-                                if (results != null) {
+                                //Items Check
+                                itemsIdArr.push(item.itemId);
 
-                                    
-                                    //console.log(data);
-                                    // console.log(itemsIdArr);
-                                    var itemsCheck = await itemSchema.find({ _id: { $in: itemsIdArr } })
-                                    var waitingTimeAll = 0;
+                                orderDetailsItmObj.item = item.name;
+                                orderDetailsItmObj.quantity = item.quantity;
+                                orderDetailsItmObj.itemPrice = item.price;
+                                orderDetailsItmObj.totalPrice = (Number(item.price) * Number(item.quantity));
+                                orderDetailsItm.push(orderDetailsItmObj);
+                            }
+                            // console.log(item.name);
+                            // console.log(item.quantity);
+                            // console.log(item.price);
+                        }
 
-                                    if (itemsCheck.length > 0) {
-                                        for (let item of itemsCheck) {
-                                            waitingTimeAll += Number(item.waitingTime);
+                        if (errorCheck == 0) {
+
+                            vendorSchema.findOne({
+                                _id: vendorId,
+                                location: {
+                                    $near: {
+                                        $maxDistance: config.restaurantSearchDistance,
+                                        $geometry: {
+                                            type: "Point",
+                                            coordinates: [long, latt]
                                         }
                                     }
-                                    var orderVendorId = data.vendorId;
-
-                                    var orderNo = generateOrder();
-
-                                    var ordersObj = {
-                                        vendorId: data.vendorId,
-                                        orderNo: orderNo,
-                                        orderTime: new Date(),
-                                        estimatedDeliveryTime: waitingTimeAll,
-
-                                        addressId : data.addressId,
-
-                                        customerId: data.customerId,
-                                        orderType: data.orderType,
-                                        deliveryPreference: data.deliveryPreference,
-                                        orderStatus: 'NEW',
-                                        price: data.price,
-                                        discount: data.discount,
-                                        finalPrice: data.finalPrice,
-                                        specialInstruction: data.specialInstruction,
-                                        promocodeId: data.promocodeId
-                                    }
-
-                                    // console.log(ordersObj);
-
-
-
-                                    //  console.log(orderDetailsItm);
-
-                                    new orderSchema(ordersObj).save(async function (err, result) {
-                                        if (err) {
-                                            console.log(err);
-                                            res.send({
-                                                success: false,
-                                                STATUSCODE: 500,
-                                                message: 'Internal DB error',
-                                                response_data: {}
-                                            });
-                                        } else {
-                                            var orderId = result._id;
-                                            var orderDetailsArr = [];
-                                            var orderIdsArr = [];
-                                            var orderDetailsCount = orderDetailsItm.length;
-                                            var c = 0;
-                                            for (let orderdetails of orderDetailsItm) {
-                                                c++;
-                                                var orderEnter = orderdetails;
-                                                orderEnter.orderId = orderId;
-
-                                                // console.log(orderEnter);
-
-                                                orderDetailsArr.push(orderEnter);
-
-                                                new OrderDetailSchema(orderEnter).save(async function (err, result) {
-                                                    orderIdsArr.push(result._id);
-
-
-
-                                                    orderSchema.update({ _id: orderId }, {
-                                                        $set: { orderDetails: orderIdsArr }
-                                                    }, function (err, res) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                        } else {
-                                                            // console.log(res);
-                                                        }
-                                                    });
-                                                })
-                                            }
-                                            //SEND PUSH MESSAGE
-                                            // var pushMessage = 'You have received a new order'
-                                            // var receiverId = orderVendorId;
-                                            // sendPush(receiverId, pushMessage,orderNo);
-
-                                            //find new order detail
-                                            const newOrder = await orderSchema.findById(orderId).populate('addressId')
-                                            //end
-
-                                            var respOrder = {};
-                                            respOrder.order = newOrder;
-                                            respOrder.orderDetails = orderDetailsArr;
-                                            res.send({
-                                                success: true,
-                                                STATUSCODE: 200,
-                                                message: 'Order Submited Successfully.',
-                                                response_data: respOrder
-                                            });
-
-                                        }
-                                    });
-
-                                } else {
+                                },
+                                isActive: true
+                            })
+                            .exec(async function (err, results) {
+                                if (err) {
                                     res.send({
                                         success: false,
                                         STATUSCODE: 500,
-                                        message: 'Something went wrong.',
+                                        message: 'Internal DB error',
                                         response_data: {}
                                     });
+                                } else {
+                                    if (results != null) {
+
+                                        
+                                        //console.log(data);
+                                        // console.log(itemsIdArr);
+                                        var itemsCheck = await itemSchema.find({ _id: { $in: itemsIdArr } })
+                                        var waitingTimeAll = 0;
+
+                                        if (itemsCheck.length > 0) {
+                                            for (let item of itemsCheck) {
+                                                waitingTimeAll += Number(item.waitingTime);
+                                            }
+                                        }
+
+                                        var orderNo = generateOrder();
+
+                                        var ordersObj = {
+                                            vendorId: vendorId,
+                                            cartDetail : cartId,
+                                            orderNo: orderNo,
+                                            orderTime: new Date(),
+                                            estimatedDeliveryTime: waitingTimeAll,
+
+                                            addressId : data.addressId,
+
+                                            customerId: data.customerId,
+                                            orderType: data.orderType,
+                                            deliveryPreference: data.deliveryPreference,
+                                            orderStatus: 'NEW',
+                                            price: data.price,
+                                            discount: data.discount,
+                                            finalPrice: data.finalPrice,
+                                            specialInstruction: data.specialInstruction,
+                                            promocodeId: data.promocodeId
+                                        }
+
+                                        new orderSchema(ordersObj).save(async function (err, result) {
+                                            if (err) {
+                                                console.log(err);
+                                                res.send({
+                                                    success: false,
+                                                    STATUSCODE: 500,
+                                                    message: 'Internal DB error',
+                                                    response_data: {}
+                                                });
+                                            } else {
+                                                var orderId = result._id;
+                                                var orderDetailsArr = [];
+                                                var orderIdsArr = [];
+                                                var orderDetailsCount = orderDetailsItm.length;
+                                                var c = 0;
+                                                for (let orderdetails of orderDetailsItm) {
+                                                    c++;
+                                                    var orderEnter = orderdetails;
+                                                    orderEnter.orderId = orderId;
+
+                                                    // console.log(orderEnter);
+
+                                                    orderDetailsArr.push(orderEnter);
+
+                                                    new OrderDetailSchema(orderEnter).save(async function (err, result) {
+                                                        orderIdsArr.push(result._id);
+
+
+
+                                                        orderSchema.update({ _id: orderId }, {
+                                                            $set: { orderDetails: orderIdsArr }
+                                                        }, function (err, res) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                            } else {
+                                                                // console.log(res);
+                                                            }
+                                                        });
+                                                    })
+                                                }
+                                                //SEND PUSH MESSAGE
+                                                // var pushMessage = 'You have received a new order'
+                                                // var receiverId = orderVendorId;
+                                                // sendPush(receiverId, pushMessage,orderNo);
+
+                                                //find new order detail
+                                                const newOrder = await orderSchema.findById(orderId)
+                                                .populate('addressId')
+                                                .populate('cartDetail')
+                                                //end
+
+                                                var respOrder = {};
+                                                respOrder.order = newOrder;
+                                                respOrder.orderDetails = orderDetailsArr;
+                                                res.send({
+                                                    success: true,
+                                                    STATUSCODE: 200,
+                                                    message: 'Order Submitted Successfully.',
+                                                    response_data: respOrder
+                                                });
+
+                                            }
+                                        });
+
+                                    } else {
+                                        res.send({
+                                            success: false,
+                                            STATUSCODE: 500,
+                                            message: 'Something went wrong.',
+                                            response_data: {}
+                                        });
+                                    }
                                 }
-                            }
 
+                            });
+
+
+
+                        } else {
+                            console.log('Invalid items object format');
+                            res.send({
+                                success: false,
+                                STATUSCODE: 500,
+                                message: 'Validation failed.',
+                                response_data: {}
+                            });
+                        }
+
+                    } else {
+                        console.log('Invalid items object format');
+                        res.send({
+                            success: false,
+                            STATUSCODE: 500,
+                            message: 'Validation failed.',
+                            response_data: {}
                         });
-
-
-
-                } else {
-                    console.log('Invalid items object format');
-                    res.send({
-                        success: false,
-                        STATUSCODE: 500,
-                        message: 'Validation failed.',
-                        response_data: {}
-                    });
+                    }
+                    return;
                 }
-
-            } else {
-                console.log('Invalid items object format');
+            }else{
                 res.send({
                     success: false,
-                    STATUSCODE: 500,
-                    message: 'Validation failed.',
+                    STATUSCODE: 400,
+                    message: 'Wrong cart id selected or cart is already placed.',
                     response_data: {}
                 });
             }
-            return;
-   
-   
         }
     } catch (error) {
         
@@ -1987,6 +2033,7 @@ customerAPI.post('/orderDetails',jwtTokenValidator.validateToken,restaurantValid
                 .findOne({_id: orderId})
                 .populate('addressId')
                 .populate('orderDetails')
+                .populate('cartDetail')
                 .then(async function (order) {
                     // console.log(order);
 

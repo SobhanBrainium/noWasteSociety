@@ -1,0 +1,228 @@
+
+
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <div class="container-fluid">
+    <div class="row mb-2">
+        <div class="col-sm-6">
+        <h1>Restaurant Edit</h1>
+        </div>
+        <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="/vendor/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/vendor/restaurant">Restaurant List</a></li>
+            <li class="breadcrumb-item active">Restaurant Edit</li>
+        </ol>
+        </div>
+    </div>
+    </div><!-- /.container-fluid -->
+</section>
+
+{{#if message}}
+    <div class="alert alert-success">
+        {{message}}
+    </div>
+{{/if}}
+
+{{#if errorMessage}}
+    <div class="alert alert-danger">
+        {{errorMessage}}
+    </div>
+{{/if}}
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- left column -->
+            <div class="col-md-6">
+            <!-- general form elements -->
+            <div class="card card-primary">
+                <div class="card-header">
+                <h3 class="card-title">Edit Restaurant</h3>
+                </div>
+                <!-- /.card-header -->
+                <!-- form start -->
+                <form role="form" id="restaurantDetailEditForm" action="javascript:void(0)" method="POST" enctype="multipart/form-data">
+                    {{!-- <input type="hidden" name="_csrf" value="{{csrfToken}}"> --}}
+                    <input type="hidden" name="restaurantId" id="restaurantId" value="{{restaurant._id}}"
+                    
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Restaurant Name</label>
+                            <input type="text" id="restaurantName" name="restaurantName" class="form-control"  placeholder="Enter Restaurant Name" value="{{restaurant.restaurantName}}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Description</label>
+                            <textarea cols="" rows="" id="restaurantDescription" name="restaurantDescription" class="form-control"  placeholder="Enter Restaurant Description" required> {{restaurant.description}} </textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Restaurant Contact Email</label>
+                            <input type="text" id="contactEmail" name="contactEmail" class="form-control"  placeholder="Enter Restaurant Contact Email" value=" {{restaurant.contactEmail}}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Restaurant Contact Phone</label>
+                            <input type="text" id="contactPhone" name="contactPhone" class="form-control"  placeholder="Enter Restaurant Contact Phone" value="{{restaurant.contactPhone}}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Address</label>
+                            <textarea cols="" rows="" id="restaurantAddress" name="restaurantAddress" class="form-control"  placeholder="Enter Restaurant Address" required> {{restaurant.address}} </textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Upload Licence Image</label>
+                            <input type="file" class="form-control" id="licenceImage" name="licenceImage" placeholder="Choose licence image" {{#if_eq restaurant.licenceImage ''}} required {{/if_eq}}>
+
+                            {{#if restaurant.licenceImage}}
+                            <div>
+                                <img src="/img/vendor/{{restaurant.licenceImage}}" width="100" height="100" />
+                                <input type="hidden" name="existing_licenceImage" id="existing_licenceImage" value="{{restaurant.licenceImage}}">
+                            </div>
+                            {{/if}}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Upload Restaurant Banner</label>
+                            <input type="file" class="form-control" id="banner" name="banner" placeholder="Choose banner image" {{#if_eq restaurant.banner ''}} required {{/if_eq}}>
+
+                            {{#if restaurant.banner}}
+                            <div>
+                                <img src="/img/vendor/{{restaurant.banner}}" width="100" height="100" />
+                                <input type="hidden" name="existing_banner" id="existing_banner" value="{{restaurant.banner}}">
+                            </div>
+                            {{/if}}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Upload Restaurant Logo</label>
+                            <input type="file" class="form-control" id="logo" name="logo" placeholder="Choose logo image" {{#if_eq restaurant.logo ''}} required {{/if_eq}}>
+
+                            {{#if restaurant.logo}}
+                            <div>
+                                <img src="/img/vendor/{{restaurant.logo}}" width="100" height="100" />
+                                <input type="hidden" name="existing_logo" id="existing_logo" value="{{restaurant.logo}}">
+                            </div>
+                            {{/if}}
+                        </div>
+
+                    </div>
+                    <!-- /.card-body -->
+
+                    <div class="card-footer">
+                        <button type="submit" id="restaurantDetailEditSubmit" class="btn btn-primary">Edit</button>
+
+                        <button type="reset" class="btn btn-primary">Cancel</button>              
+                    </div>
+                </form>
+            </div>
+
+            </div>
+        </div>
+    </div>
+</section>
+
+{{#content "admin_dashboard_script" mode="append"}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
+
+<script type="text/javascript">
+    jQuery(document).ready(function(){
+        $(".alert").fadeTo(2000, 500).slideUp(500, function(){
+            $(".alert").slideUp(500);
+        });
+
+        $("#restaurantDetailEditSubmit").on('click', function () {
+            let valid = $("#restaurantDetailEditForm").valid();
+            if(valid){
+                const form_data = new FormData($('#restaurantDetailEditForm')[0]);
+                $.ajax({
+                    type : "POST",
+                    url : '/vendor/restaurant/edit/submit/',
+                    data : form_data,
+					processData : false,
+	                contentType : false,
+                    success: function (resp) {
+						if(resp.status === 200) {
+							sweetAlertAboutUsSuccessPopUp("Updated.", resp.message, "/vendor/restaurant");
+						}else{
+                            sweetAlertAboutUsSuccessPopUp("Failed.", resp.message, "/vendor/restaurant");
+                        }
+					}
+                })
+            }
+        });
+
+        $("#restaurantDetailEditForm").validate({
+            rules:{
+                restaurantName:{
+                    required: true
+                },
+                restaurantDescription:{
+                    required: true
+                },
+                contactEmail : {
+                    required: true
+                },
+                contactPhone:{
+                    required: true
+                },
+                restaurantAddress:{
+                    required: true
+                },
+                //licenceImage:{
+                //    required: true 
+                //},
+                //banner:{
+                //    required: true 
+                //},
+                //logo:{
+                //    required: true 
+                //}
+            },
+            messages:{
+                restaurantName:{
+                    required: "<font color='red'>Please enter restaurant name.</font>"
+                },
+                restaurantDescription:{
+                    required: "<font color='red'>Please enter restaurant description.</font>"
+                },
+                contactEmail : {
+                    required: "<font color='red'>Please enter restaurant contact email.</font>"
+                },
+                contactPhone:{
+                    required: "<font color='red'>Please enter restaurant contact Phone.</font>"
+                },
+                restaurantAddress:{
+                    required: "<font color='red'>Please enter restaurant address.</font>"
+                },
+                //licenceImage:{
+                //    required: "<font color='red'>Please choose restaurant licence image.</font>" 
+                //},
+                //banner:{
+                //    required: "<font color='red'>Please choose restaurant banner image.</font>" 
+                //},
+                //logo:{
+                //    required: "<font color='red'>Please choose restaurant logo.</font>" 
+                //}
+            }
+        });
+
+        function sweetAlertAboutUsSuccessPopUp (title='',text='', redirect_link='') {
+            swal({
+                title: title,
+                text: text,
+                type: "success",
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "OK"
+            },  function() {
+                window.location.href = redirect_link;
+            });
+        }
+    })
+</script>
+
+{{/content}}
+
+

@@ -6,6 +6,7 @@ import deliveryBoyJwtTokenValidator from "../middlewares/deliveryBoy-token-valid
 import deliveryBoyValidator from "../middlewares/validators/customer/deliveryBoy-validator"
 import _ from "lodash"
 import config from "../config"
+import multer from "multer"
 
 import deliveryboySchema from "../schema/DeliveryBoy"
 import userDeviceLoginSchema from "../schema/UserDeviceLogin"
@@ -14,16 +15,48 @@ import userAddressSchema from "../schema/Address"
 import orderSchema from "../schema/Order"
 import vendorSchema from "../schema/Vendor"
 import userSchema from "../schema/User"
+import cartSchema from "../schema/Cart"
+import itemSchema from "../schema/Item"
 
 const mail = require('../modules/sendEmail')
 
 const OrderAssignToDeliveryBoy = mongoose.model('OrderAssignToDeliveryBoy', orderAssignToDeliverBoySchema)
 const User = mongoose.model('User', userSchema)
 const UserAddress = mongoose.model('UserAddress', userAddressSchema)
+let Cart = mongoose.model('Cart', cartSchema)
 
 let app = express.Router()
 app.use(express.json())
 app.use(express.urlencoded({extended: false}))
+
+//#region file upload using multer
+let storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, 'public/img/profile-pic');
+    },
+    filename: function (req, file, cb) {
+      let fileExt = file.mimetype.split('/')[1];
+      if (fileExt == 'jpeg'){ fileExt = 'jpg';}
+      let fileName = req.user.id + '-' + Date.now() + '.' + fileExt;
+      cb(null, fileName);
+    }
+})
+
+let restrictImgType = function(req, file, cb) {
+    var allowedTypes = ['image/jpeg','image/gif','image/png', 'image/jpg'];
+      if (allowedTypes.indexOf(req.file.mimetype) !== -1){
+        // To accept the file pass `true`
+        cb(null, true);
+      } else {
+        // To reject this file pass `false`
+        cb(null, false);
+       //cb(new Error('File type not allowed'));// How to pass an error?
+      }
+};
+
+const upload = multer({ storage: storage, limits: {fileSize: 10485760 , fileFilter:restrictImgType} }).single('image');
+//#endregion
+
 
 //#region Login
 app.post('/login', deliveryBoyValidator.deliveryBoyLogin, async (req, res) => {
@@ -161,7 +194,7 @@ app.post('/login', deliveryBoyValidator.deliveryBoyLogin, async (req, res) => {
 })
 //#endregion
 
-//#region oder details
+//#region order list
 app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req, res) => {
     try {
         const data = req.query
@@ -171,9 +204,26 @@ app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req
             const destLong = req.query.longitude;
 
             const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({})
-            .populate('orderId', {orderTime : 1, orderType : 1, deliveryPreference : 1, price : 1, discount : 1, finalPrice : 1, orderNo : 1, estimatedDeliveryTime : 1, _id : 0})
             .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
             .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
+            .populate({
+                path : "orderId",
+                select : {
+                    cartDetail : 1, orderTime : 1, orderType : 1, deliveryPreference : 1, price : 1, discount : 1, finalPrice : 1, orderNo : 1, estimatedDeliveryTime : 1, _id : 0
+                },
+                populate : {
+                    path : "cartDetail",
+                    select : {
+                        _id : 0, item : 1
+                    },
+                    populate : {
+                        path : "item.itemId",
+                        select : {
+                            itemName : 1, menuImage : 1, _id : 0
+                        }
+                    }
+                }
+            })
             .populate('deliveryAddressId')
 
             if(fetchAssignOrders.length > 0){
@@ -221,6 +271,232 @@ app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req
     }
 })
 //#endregion
+
+//#region order details
+app.get('/orderDetail', deliveryBoyJwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        if(!req.query.orderListId){
+            res.status(422).json({
+                success: false,
+                STATUSCODE: 422,
+                message: 'orderListId is required'
+            })
+        }else{
+
+            const orderListId = req.query.orderListId
+            const getDetail = await OrderAssignToDeliveryBoy.findById(orderListId)
+            .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
+            .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
+            .populate({
+                path : "orderId",
+                select : {
+                    cartDetail : 1, orderTime : 1, orderType : 1, deliveryPreference : 1, price : 1, discount : 1, finalPrice : 1, orderNo : 1, estimatedDeliveryTime : 1, _id : 0
+                },
+                populate : {
+                    path : "cartDetail",
+                    select : {
+                        _id : 0, item : 1
+                    },
+                    populate : {
+                        path : "item.itemId",
+                        select : {
+                            itemName : 1, menuImage : 1, _id : 0
+                        }
+                    }
+                }
+            })
+            .populate('deliveryAddressId')
+    
+            if(getDetail){
+                for(let i = 0; i < getDetail.orderId.cartDetail.item.length; i++){
+                    getDetail.orderId.cartDetail.item[i].itemId.menuImage = `${config.serverhost}:${config.port}/img/profile-pic/` + getDetail.orderId.cartDetail.item[i].itemId.menuImage
+                }
+    
+                res.send({
+                    success: false,
+                    STATUSCODE: 200,
+                    message: 'Detail fetch successfully.',
+                    response_data: getDetail
+                })
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 200,
+                    message: 'No order assign to you.',
+                    response_data: {}
+                })
+            }
+        }
+        
+    } catch (error) {
+        console.log(error,'err')
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region View Profile
+app.get('/viewProfile', deliveryBoyJwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        let response = {
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            email: req.user.email,
+            phone: req.user.phone,
+            vehicle: req.user.vehicle,
+            numberPlate: req.user.numberPlate,
+            driverLicense: req.user.driverLicense
+        }
+
+        if (req.user.profileImage != '') {
+            response.profileImage = `${config.serverhost}:${config.port}/img/profile-pic/` + req.user.profileImage
+        } else {
+            response.profileImage = ''
+        }
+
+        res.send({
+            success: true,
+            STATUSCODE: 200,
+            message: 'Vendor profile fetched successfully',
+            response_data: response
+        })
+        
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region Edit Profile */
+app.post('/editProfile', deliveryBoyJwtTokenValidator.validateToken, deliveryBoyValidator.editProfile, async(req, res) => {
+    try {
+        const userId = req.user._id
+
+        const deliveryBoyDetail =  await deliveryboySchema.findById(userId)
+        
+        if(req.body.firstName != ''){
+            deliveryBoyDetail.firstName = req.body.firstName
+        }
+
+        if(req.body.lastName != ''){
+            deliveryBoyDetail.lastName = req.body.lastName
+        }
+
+        // if(req.body.email != ''){
+        //     deliveryBoyDetail.email = req.body.email
+        // }
+
+        // if(req.body.phone != ''){
+        //     deliveryBoyDetail.phone = req.body.phone
+        // }
+
+        if(req.body.vehicle != ''){
+            deliveryBoyDetail.vehicle = req.body.vehicle
+        }
+
+        if(req.body.numberPlate != ''){
+            deliveryBoyDetail.numberPlate = req.body.numberPlate
+        }
+
+        if(req.body.driverLicense != ''){
+            deliveryBoyDetail.driverLicense = req.body.driverLicense
+        }
+
+        const updateUserDetail = await deliveryBoyDetail.save()
+
+        res.send({
+            success: true,
+            STATUSCODE: 200,
+            message: 'Profile updated successfully.',
+            response_data: updateUserDetail
+        })
+
+    } catch (error) {
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
+//#region  Profile image upload */
+app.post('/profileImageUpload',deliveryBoyJwtTokenValidator.validateToken, async(req, res) => {
+    try {
+        if(req.file != ''){
+            upload(req, res, async function (err) {
+                if (err) {
+                    // A Multer error occurred when uploading.
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'File size too large. Upload size maximum 5MB',
+                        response_data: {}
+                    })
+                }
+
+                const userDetail = req.user
+                const profilePicName = req.file.filename
+
+                const updateProfilePic = await deliveryboySchema.updateOne({_id : userDetail._id},{
+                    $set : {
+                        profileImage : profilePicName
+                    }
+                })
+
+                if(updateProfilePic){
+                    const getCurrentUser = await deliveryboySchema.findById(req.user._id)
+                    let profileImage;
+                    if(getCurrentUser != ''){
+                        if (getCurrentUser.profileImage != '') {
+                            profileImage = `${config.serverhost}:${config.port}/img/profile-pic/` + getCurrentUser.profileImage
+                        } else {
+                            profileImage = ''
+                        }
+                    }
+                    res.send({
+                        success: true,
+                        STATUSCODE: 200,
+                        message: 'Profile pic uploaded successfully.',
+                        response_data: {
+                            profileImage : profileImage
+                        }
+                    })
+                }else{
+                    res.send({
+                        success: false,
+                        STATUSCODE: 500,
+                        message: 'Something went wrong.',
+                        response_data: {}
+                    })
+                }
+
+            })
+        }
+    } catch (error) {
+        console.log(error,'object')
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error',
+            response_data: {}
+        })
+    }
+})
+//#endregion
+
 
 //#region Logout */
 app.post('/logout', deliveryBoyJwtTokenValidator.validateToken, deliveryBoyValidator.logout, async(req, res) => {
