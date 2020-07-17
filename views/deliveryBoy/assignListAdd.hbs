@@ -1,0 +1,133 @@
+
+
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <div class="container-fluid">
+    <div class="row mb-2">
+        <div class="col-sm-6">
+        <h1>Delivery Boy Assign</h1>
+        </div>
+        <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/admin/assignDeliveryBoy">Delivery Boy Assign List</a></li>
+            <li class="breadcrumb-item active">Delivery Boy Assign</li>
+        </ol>
+        </div>
+    </div>
+    </div><!-- /.container-fluid -->
+</section>
+
+{{#if message}}
+    <div class="alert alert-success">
+        {{message}}
+    </div>
+{{/if}}
+
+{{#if errorMessage}}
+    <div class="alert alert-danger">
+        {{errorMessage}}
+    </div>
+{{/if}}
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- left column -->
+            <div class="col-md-6">
+            <!-- general form elements -->
+            <div class="card card-primary">
+                <div class="card-header">
+                <h3 class="card-title">Assign Delivery to Restaurant</h3>
+                </div>
+                <!-- /.card-header -->
+                <!-- form start -->
+                <form role="form" id="deliveryBoyAssignForm" action="/admin/assignDeliveryBoy/add/submit" method="POST">
+                    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Choose Restaurant</label>
+                            <select id="restaurantId" name="restaurantId" class="form-control">
+                                <option value="">Select Restaurant</option>
+
+                                {{#each listOfRestaurant}}
+                                    <option value="{{this._id}}">{{this.restaurantName}}</option>
+                                {{/each}}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Choose Delivery Boy</label>
+                            <select id="deliveryBoysId" name="deliveryBoysId" class="form-control">
+                                <option value="">Select Restaurant</option>
+
+                                {{#each listOfDeliveryBoys}}
+                                    <option value="{{this._id}}">{{this.firstName}} {{this.lastName}}</option>
+                                {{/each}}
+                            </select>
+                        </div>
+                    </div>
+                    <!-- /.card-body -->
+
+                    <div class="card-footer">
+                        <button type="submit" id="deliveryBoyAssignFormSubmit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+
+            </div>
+        </div>
+    </div>
+</section>
+
+{{#content "admin_dashboard_script" mode="append"}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
+<script type="text/javascript">
+    jQuery(document).ready(function(){
+        $(".alert").fadeTo(2000, 500).slideUp(500, function(){
+            $(".alert").slideUp(500);
+        });
+
+        $("#deliveryBoyAssignFormSubmit").on('click', function () {
+            let valid = $("#deliveryBoyAssignForm").valid();
+            if(valid){
+                $("#deliveryBoyAssignForm").submit;
+            }
+        });
+
+        $("#deliveryBoyAssignForm").validate({
+            rules:{
+                restaurantId:{
+                    required: true
+                },
+                deliveryBoysId : {
+                    required: true
+                }
+            },
+            messages:{
+                restaurantId:{
+                    required: "<font color='red'>Please choose restaurant.</font>"
+                },
+                 deliveryBoysId : {
+                    required: "<font color='red'>Please choose delivery boy.</font>"
+                }
+            }
+        });
+
+        function sweetAlertAboutUsSuccessPopUp (title='',text='', redirect_link='') {
+            swal({
+                title: title,
+                text: text,
+                type: "success",
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "OK"
+            },  function() {
+                window.location.href = redirect_link;
+            });
+        }
+    })
+</script>
+
+{{/content}}
+
+

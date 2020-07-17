@@ -3,12 +3,12 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Restaurant List</h1>
+            <h1>Delivery Boy List</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
-              <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">Restaurant List</li>
+              <li class="breadcrumb-item"><a href="admin/dashboard">Home</a></li>
+              <li class="breadcrumb-item active">Delivery Boy List</li>
             </ol>
           </div>
         </div>
@@ -33,43 +33,46 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <a href="/vendor/restaurant/add"  class="btn btn-primary pull-right">Add restaurant</a>
+                            <a href="/admin/deliveryBoy/add"  class="btn btn-primary pull-right">Add Delivery Boy</a>
                             <div class="clearfix"></div>
                         </div>
                         <!-- /.card-header -->
                         <div class="card-body">
-                            <table id="vendorRestaurantListTable" class="table table-bordered table-hover">
+                            <table id="deliveryBoyListTable" class="table table-bordered table-hover">
                             <thead>
                             <tr>
-                                <th>Restaurant Name</th>
-                                <th>Restaurant Email</th>
-                                <th>Restaurant Phone Number</th>
-                                <th>Restaurant Address</th>
-                                <th>Action</th>
+                                <th>Delivery Boy Name</th>
+                                <th>Delivery Boy Email</th>
+                                <th>Delivery Boy Phone Number</th>
+                                <th>Delivery Boy Number Plate</th>
+                                <th>Delivery Boy driverLicense</th>
+                                {{!-- <th>Action</th> --}}
                             </tr>
                             </thead>
                             <tbody>
                                 {{#each list}}
                                     <tr>
-                                        <td>{{this.restaurantName}}</td>
-                                        <td>{{this.contactEmail}}</td>
-                                        <td>{{this.contactPhone}}</td>
-                                        <td>{{this.address}}</td>
-                                        <td>
+                                        <td>{{this.firstName}} {{this.lastName}}</td>
+                                        <td>{{this.email}}</td>
+                                        <td>{{this.phone}}</td>
+                                        <td>{{this.numberPlate}}</td>
+                                        <td>{{this.driverLicense}}</td>
+                                        {{!-- <td>
                                             <a class="btn btn-primary tbl-common-btn" href="/vendor/restaurant/edit/{{this._id}}">Edit</a>
 
                                             <a href='/vendor/restaurant/delete/{{this._id}}' class="btn btn-danger tbl-common-btn approve-req" >Delete</a>
-                                        </td>
+                                        </td> --}}
                                     </tr>
                                 {{/each}}
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <th>Restaurant Name</th>
-                                    <th>Restaurant Email</th>
-                                    <th>Restaurant Phone Number</th>
-                                    <th>Restaurant Address</th>
-                                    <th>Action</th>
+                                    <th>Delivery Boy Name</th>
+                                    <th>Delivery Boy Email</th>
+                                    <th>Delivery Boy Phone Number</th>
+                                    <th>Delivery Boy Number Plate</th>
+                                    <th>Delivery Boy driverLicense</th>
+                                    {{!-- <th>Action</th> --}}
                                 </tr>
                             </tfoot>
                             </table>
@@ -89,7 +92,7 @@
 <script>
 
     $(function () {
-        $('#vendorRestaurantListTable').DataTable({
+        $('#deliveryBoyListTable').DataTable({
             "paging": true,
             "lengthChange": false,
             "searching": false,

@@ -10,6 +10,8 @@ import orderSchema from "../../schema/Order"
 import adminSchema from "../../schema/Admin"
 import vendorSchema from "../../schema/Vendor"
 import itemSchema from "../../schema/Item"
+import deliveryboySchema from "../../schema/DeliveryBoy"
+import assignDeliveryBoySchema from "../../schema/AssignDeliveryBoyToRestaurant"
 
 //#region middleware
 import auth from "../../middlewares/auth"
@@ -25,6 +27,7 @@ const csrfProtection = csrf({ cookie: true })
 
 const User = mongoose.model('User', userSchema)
 const Admin = mongoose.model('Admin', adminSchema)
+const AssignDeliveryBoyToRestaurant = mongoose.model('AssignDeliveryBoyToRestaurant', assignDeliveryBoySchema)
 
 const mail = require('../../modules/sendEmail');
 
@@ -186,6 +189,139 @@ adminAPI.get('/admin/restaurant/addAdmin', auth, csrfProtection,  async (req, re
         res.redirect('/admin/restaurant/addAdmin');
     }
 })
+
+adminAPI.get('/admin/deliveryBoy', auth, csrfProtection, async (req, res) => {
+    const success_message = req.flash('Success')[0];
+    const errorMessage = req.flash('Error')[0]
+
+    const getDeliveryBoyList = await deliveryboySchema.find({isActive : true}).sort({_id : -1})
+
+    res.render('deliveryBoy/List', {
+        layout : "adminDashboardView",
+        title : "Delivery Boy List",
+        csrfToken: req.csrfToken(),
+        list : getDeliveryBoyList,
+        message : success_message,
+        errorMessage : errorMessage
+    })
+})
+
+adminAPI.get('/admin/deliveryBoy/add', auth, csrfProtection, async (req, res) => {
+    const success_message = req.flash('Success')[0];
+    const errorMessage = req.flash('Error')[0]
+    res.render('deliveryBoy/add', {
+        layout : "adminDashboardView",
+        title : "Delivery Boy Add",
+        csrfToken: req.csrfToken(),
+        message : success_message,
+        errorMessage : errorMessage
+    })
+})
+
+adminAPI.post('/admin/deliveryBoy/add/submit', auth, async (req, res) => {
+    try {
+        const isExist = await deliveryboySchema.findOne({
+            $or : [{email : req.body.deliveryBoyEmail}, {phone : req.body.deliveryBoyPhoneNumber}]
+        })
+        
+        if(isExist){
+            req.flash('Error', 'Delivery Boy is already exist.');
+            res.redirect('/admin/deliveryBoy');
+        }else{
+            // add user to db and sent admin credential using email
+            const generateRandomPassword = Math.random().toString().replace('0.', '').substr(0, 8)
+            //#region add restaurant admin detail
+            const deliveryBoyObj = new deliveryboySchema({
+                firstName : req.body.deliveryBoyFirstName,
+                lastName : req.body.deliveryBoyLastName,
+                email : req.body.deliveryBoyEmail,
+                phone : req.body.deliveryBoyPhoneNumber,
+                password : generateRandomPassword,
+                isActive : true,
+                numberPlate : req.body.deliveryBoyNumberPlate,
+                driverLicense : req.body.driverLicense,
+                vehicle : req.body.vehicle,
+                loginType: 'EMAIL'
+            })
+        
+            const addedDeliveryBoy = await deliveryBoyObj.save()
+            //#region 
+
+            // sent email with password
+            mail('deliveryBoyWelcomeMail')(addedDeliveryBoy.email, addedDeliveryBoy, generateRandomPassword).send();
+        
+            req.flash('Success', 'Delivery Boy has been created successfully.');
+            res.redirect('/admin/deliveryBoy');
+        }
+
+    } catch (error) {
+        console.log(error,'error')
+        req.flash('Error', 'Something went wrong.');
+        res.redirect('/admin/deliveryBoy');
+    }
+})
+
+adminAPI.get('/admin/assignDeliveryBoy', auth, csrfProtection, async (req, res) => {
+    const success_message = req.flash('Success')[0];
+    const errorMessage = req.flash('Error')[0]
+
+    const getDeliveryBoysList = await AssignDeliveryBoyToRestaurant.find()
+    .populate('restaurantId')
+    .populate('deliveryBoyId')
+    .sort({_id : -1})
+
+    res.render('deliveryBoy/assignList', {
+        layout : "adminDashboardView",
+        title : "Delivery Boy Assign List",
+        csrfToken: req.csrfToken(),
+        list : getDeliveryBoysList,
+        message : success_message,
+        errorMessage : errorMessage
+    })
+})
+
+adminAPI.get('/admin/assignDeliveryBoy/add', auth, csrfProtection, async (req, res) => {
+    const success_message = req.flash('Success')[0];
+    const errorMessage = req.flash('Error')[0]
+
+    const getAllDeliveryBoys = await deliveryboySchema.find({isActive : true}).sort({_id : -1})
+    const getAllRestaurants = await vendorSchema.find({isActive : true}).sort({_id : -1})
+
+    res.render('deliveryBoy/assignListAdd', {
+        layout : "adminDashboardView",
+        title : "Delivery Boy Assign List Add",
+        csrfToken: req.csrfToken(),
+        listOfDeliveryBoys : getAllDeliveryBoys,
+        listOfRestaurant : getAllRestaurants,
+        message : success_message,
+        errorMessage : errorMessage
+    })
+})
+
+adminAPI.post('/admin/assignDeliveryBoy/add/submit', auth, csrfProtection, async (req, res) => {
+    const restaurantId = req.body.restaurantId
+    const deliveryBoyId = req.body.deliveryBoysId
+
+    const isAlreadyAssigned = await AssignDeliveryBoyToRestaurant.findOne({restaurantId : restaurantId, deliveryBoyId : deliveryBoyId})
+
+    if(isAlreadyAssigned){
+        req.flash('Error', 'Already exist.')
+        res.redirect('/admin/assignDeliveryBoy/add')
+    }else{
+        const addObj = new AssignDeliveryBoyToRestaurant({
+            restaurantId : restaurantId,
+            deliveryBoyId : deliveryBoyId
+        })
+
+        const addedResponse = await addObj.save()
+
+        if(addedResponse) {
+            req.flash('Success', 'Delivery boy has been successfully assigned.')
+            res.redirect('/admin/assignDeliveryBoy')
+        }
+    }
+})
+
 //#endregion
 
 //#region vendor route

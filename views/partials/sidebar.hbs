@@ -52,6 +52,24 @@
             </ul>
           </li>
 
+          <li class="nav-item has-treeview">
+              <a href="/admin/deliveryBoy" class="nav-link {{#if_eq client_url "deliveryBoy" }} active {{/if_eq}}">
+                  <i class="nav-icon fas fa-user"></i>
+                  <p>
+                    Delivery boys
+                  </p>
+              </a>
+          </li>
+
+          <li class="nav-item has-treeview">
+              <a href="/admin/assignDeliveryBoy" class="nav-link {{#if_eq client_url "assignDeliveryBoy" }} active {{/if_eq}}">
+                  <i class="nav-icon fas fa-user"></i>
+                  <p>
+                    Assign to restaurant
+                  </p>
+              </a>
+          </li>
+
           {{/if_eq}}
 
           {{#if_eq user.userType 'restaurant'}}

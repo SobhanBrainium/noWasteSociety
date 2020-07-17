@@ -1,0 +1,176 @@
+
+
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <div class="container-fluid">
+    <div class="row mb-2">
+        <div class="col-sm-6">
+        <h1>Delivery Boy Add</h1>
+        </div>
+        <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/admin/deliveryBoy">Delivery Boy List</a></li>
+            <li class="breadcrumb-item active">Delivery Boy Add</li>
+        </ol>
+        </div>
+    </div>
+    </div><!-- /.container-fluid -->
+</section>
+
+{{#if message}}
+    <div class="alert alert-success">
+        {{message}}
+    </div>
+{{/if}}
+
+{{#if errorMessage}}
+    <div class="alert alert-danger">
+        {{errorMessage}}
+    </div>
+{{/if}}
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- left column -->
+            <div class="col-md-6">
+            <!-- general form elements -->
+            <div class="card card-primary">
+                <div class="card-header">
+                <h3 class="card-title">Add Delivery Boy</h3>
+                </div>
+                <!-- /.card-header -->
+                <!-- form start -->
+                <form role="form" id="deliveryBoyAddForm" action="/admin/deliveryBoy/add/submit" method="POST">
+                    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">First Name</label>
+                            <input type="text" id="deliveryBoyFirstName" name="deliveryBoyFirstName" class="form-control"  placeholder="Enter First Name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Last Name</label>
+                            <input type="text" id="deliveryBoyLastName" name="deliveryBoyLastName" class="form-control"  placeholder="Enter Last Name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputEmail1">Email</label>
+                            <input type="email" class="form-control" id="deliveryBoyEmail" name="deliveryBoyEmail" placeholder="Enter Email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Phone</label>
+                            <input type="number" class="form-control" id="deliveryBoyPhoneNumber" name="deliveryBoyPhoneNumber" placeholder="Enter phone number." required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Number Plate</label>
+                            <input type="text" class="form-control" id="deliveryBoyNumberPlate" name="deliveryBoyNumberPlate" placeholder="Enter number plate." required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Driving License</label>
+                            <input type="text" class="form-control" id="driverLicense" name="driverLicense" placeholder="Enter driving license number." required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Vehicle</label>
+                            <input type="text" class="form-control" id="vehicle" name="vehicle" placeholder="Enter vehicle name." required>
+                        </div>
+                    </div>
+                    <!-- /.card-body -->
+
+                    <div class="card-footer">
+                        <button type="submit" id="deliveryBoyAddFormSubmit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+
+            </div>
+        </div>
+    </div>
+</section>
+
+{{#content "admin_dashboard_script" mode="append"}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
+<script type="text/javascript">
+    jQuery(document).ready(function(){
+        $(".alert").fadeTo(2000, 500).slideUp(500, function(){
+            $(".alert").slideUp(500);
+        });
+
+        $("#deliveryBoyAddFormSubmit").on('click', function () {
+            let valid = $("#deliveryBoyAddForm").valid();
+            if(valid){
+                $("#deliveryBoyAddForm").submit;
+            }
+        });
+
+        $("#deliveryBoyAddForm").validate({
+            rules:{
+                deliveryBoyFirstName:{
+                    required: true
+                },
+                deliveryBoyLastName : {
+                    required: true
+                },
+                deliveryBoyEmail:{
+                    required: true
+                },
+                deliveryBoyPhoneNumber:{
+                    required: true
+                },
+                deliveryBoyNumberPlate:{
+                    required: true
+                },
+                driverLicense:{
+                    required : true
+                },
+                vehicle:{
+                    required : true
+                }
+            },
+            messages:{
+                deliveryBoyFirstName:{
+                    required: "<font color='red'>Please enter first name.</font>"
+                },
+                 deliveryBoyLastName : {
+                    required: "<font color='red'>Please enter last name.</font>"
+                },
+                deliveryBoyEmail:{
+                    required: "<font color='red'>Please enter email.</font>"
+                },
+                deliveryBoyPhoneNumber:{
+                    required: "<font color='red'>Please enter phone number.</font>"
+                },
+                deliveryBoyNumberPlate:{
+                    required: "<font color='red'>Please enter number plate.</font>"
+                },
+                driverLicense:{
+                    required : "<font color='red'>Please enter driving license.</font>"
+                },
+                vehicle:{
+                    required : "<font color='red'>Please enter vehicle type.</font>"
+                }
+            }
+        });
+
+        function sweetAlertAboutUsSuccessPopUp (title='',text='', redirect_link='') {
+            swal({
+                title: title,
+                text: text,
+                type: "success",
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "OK"
+            },  function() {
+                window.location.href = redirect_link;
+            });
+        }
+    })
+</script>
+
+{{/content}}
+
+

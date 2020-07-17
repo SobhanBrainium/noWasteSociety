@@ -25,6 +25,9 @@ module.exports = function(emailType) {
         },
         "restaurantAdminWelcomeMail" : {
             subject : "Welcome to No waste society"
+        },
+        "deliveryBoyWelcomeMail" : {
+            subject : "Welcome to No waste society"
         }
     };
 
@@ -66,6 +69,10 @@ module.exports = function(emailType) {
                         break;
                     case 'restaurantAdminWelcomeMail' :
                         mailOption.text = `Hello ${data.firstName}. welcome to No Waste Society. Your login credential is email ${data.email} and password ${option}. Login URL ${config.serverhost}:${config.port}`
+                        break;
+
+                    case 'deliveryBoyWelcomeMail' :
+                        mailOption.text = `Hello ${data.firstName}. welcome to No Waste Society. Your login credential is email ${data.email} and password ${option}.`
                 }
  
 

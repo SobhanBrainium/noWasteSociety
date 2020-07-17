@@ -80,7 +80,7 @@ app.post('/login', deliveryBoyValidator.deliveryBoyLogin, async (req, res) => {
             }
 
             const isCustomerExist = await deliveryboySchema.findOne(loginCond)
-            // console.log(isCustomerExist,'isCustomerExist')
+            console.log(isCustomerExist,'isCustomerExist')
 
             if(isCustomerExist != null){
                 if (data.userType == 'admin') {
@@ -184,6 +184,7 @@ app.post('/login', deliveryBoyValidator.deliveryBoyLogin, async (req, res) => {
             }
         }
     } catch (error) {
+        console.log(error,'err')
         res.send({
             success: false,
             STATUSCODE: 500,
@@ -203,7 +204,7 @@ app.get('/orderListings', deliveryBoyJwtTokenValidator.validateToken, async (req
             const destLat = req.query.latitude;
             const destLong = req.query.longitude;
 
-            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find()
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryBoyId : req.user._id})
             .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
             .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
             .populate({
@@ -313,7 +314,7 @@ app.get('/orderDetail', deliveryBoyJwtTokenValidator.validateToken, async (req, 
                 }
     
                 res.send({
-                    success: false,
+                    success: true,
                     STATUSCODE: 200,
                     message: 'Detail fetch successfully.',
                     response_data: getDetail
@@ -349,7 +350,7 @@ app.get('/completedOrderList', deliveryBoyJwtTokenValidator.validateToken, async
             const destLat = req.query.latitude;
             const destLong = req.query.longitude;
 
-            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryStatus : 3})
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryStatus : 3, deliveryBoyId : req.user._id})
             .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
             .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
             .populate({
@@ -427,8 +428,8 @@ app.get('/pendingOrderList', deliveryBoyJwtTokenValidator.validateToken, async (
             const destLat = req.query.latitude;
             const destLong = req.query.longitude;
 
-            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryStatus : 1})
-            .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0})
+            const fetchAssignOrders = await OrderAssignToDeliveryBoy.find({deliveryStatus : 1, deliveryBoyId : req.user._id})
+            .populate('vendorId', {restaurantName : 1, location : 1, managerName : 1, contactPhone : 1, _id : 0, logo : 1, banner : 1})
             .populate('customerId', {phone : 1, firstName : 1, lastName : 1, email : 1, profileImage : 1, _id : 0})
             .populate({
                 path : "orderId",
@@ -454,6 +455,11 @@ app.get('/pendingOrderList', deliveryBoyJwtTokenValidator.validateToken, async (
                 let finalOrderList = []
 
                 for(let i = 0; i < fetchAssignOrders.length; i++ ){
+                    // vendor image
+                    fetchAssignOrders[i].vendorId.logo = `${config.serverhost}:${config.port}/img/vendor/` + fetchAssignOrders[i].vendorId.logo
+                    fetchAssignOrders[i].vendorId.banner = `${config.serverhost}:${config.port}/img/vendor/` + fetchAssignOrders[i].vendorId.banner
+                    // end
+                    
                     const vendorDetail = fetchAssignOrders[i].vendorId
                     const sourceLong = vendorDetail.location.coordinates[0];
                     const sourceLat = vendorDetail.location.coordinates[1];

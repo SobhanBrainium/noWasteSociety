@@ -12,7 +12,7 @@ const orderAssignToDeliverBoySchema = new Schema({
     deliveryBoyId : {type : Schema.Types.ObjectId, required : true, ref : 'DeliveryBoy'},
     customerId : {type : Schema.Types.ObjectId, required : true, ref : 'User'},
     deliveryAddressId : {type : Schema.Types.ObjectId, required : true, ref : UserAddress},
-    deliveryStatus : {type : String, default : 1} // 1 = On the way or pending, 2 = pick up fro restaurant, 3 = delivered to customer
+    deliveryStatus : {type : Number, default : 1} // 1 = On the way or pending, 2 = pick up fro restaurant, 3 = delivered to customer
 }, {
     timestamps: true
 })
