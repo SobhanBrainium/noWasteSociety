@@ -4,7 +4,7 @@ import userAddressSchema from "../schema/Address"
 let UserAddress = mongoose.model('UserAddress', userAddressSchema)
 
 var orderSchema = new mongoose.Schema({
-    vendorId: { type: mongoose.Schema.Types.ObjectId, required: true},
+    vendorId: { type: mongoose.Schema.Types.ObjectId, required: true, ref : "Vendor"},
     cartDetail: { type: mongoose.Schema.Types.ObjectId, required: true, ref : "Cart"},
     orderNo: {type: String, required: true, unique: true},
     orderTime: {type: Date, required: true, default: new Date()},
@@ -15,7 +15,7 @@ var orderSchema = new mongoose.Schema({
     
     addressId : {type : mongoose.Schema.Types.ObjectId, required: true, ref : UserAddress},
 
-    customerId: { type: mongoose.Schema.Types.ObjectId, required: true,default: '5e68af6f7a611343eae69b9a' },
+    customerId: { type: mongoose.Schema.Types.ObjectId, required: true,default: '5e68af6f7a611343eae69b9a', ref : "User" },
     orderType: { type: String, required: true, enum: ['NORMAL','SCHEDULE'],default: 'NORMAL' },
     deliveryPreference : { type: String, required: true, enum: ['DELIVERY','PICKUP'],default: 'DELIVERY' },
     orderStatus: { type: String, required: true, enum: ['NEW','ACCEPTED', 'DELAYED', 'DELIVERED', 'COMPLETED','MODIFIED','CANCELLED','READY'],default: 'NEW'  },

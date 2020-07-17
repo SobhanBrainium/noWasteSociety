@@ -1,0 +1,94 @@
+<!-- Content Header (Page header) -->
+    <section class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2">
+          <div class="col-sm-6">
+            <h1>Order List</h1>
+          </div>
+          <div class="col-sm-6">
+            <ol class="breadcrumb float-sm-right">
+              <li class="breadcrumb-item"><a href="/vendor/dashboard">Home</a></li>
+              <li class="breadcrumb-item active">Order List</li>
+            </ol>
+          </div>
+        </div>
+      </div><!-- /.container-fluid -->
+    </section>
+
+    {{#if message}}
+        <div class="alert alert-success">
+            {{message}}
+        </div>
+    {{/if}}
+
+    {{#if errorMessage}}
+        <div class="alert alert-danger">
+            {{errorMessage}}
+        </div>
+    {{/if}}
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <!-- /.card-header -->
+                        <div class="card-body">
+                            <table id="orderListTable" class="table table-bordered table-hover">
+                            <thead>
+                            <tr>
+                                <th>Restaurant Name</th>
+                                <th>Customer Name</th>
+                                <th>Order Number</th>
+                                <th>Action</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {{#each list}}
+                                    <tr>
+                                        <td>{{this.vendorId.restaurantName}}</td>
+                                        <td>{{this.customerId.firstName}} {{this.customerId.lastName}}</td>
+                                        <td>{{this.orderNo}}</td>
+                                        <td>
+                                            <a class="btn btn-primary tbl-common-btn" href="/vendor/order/detail/{{this._id}}">Order Detail</a>
+                                        </td>
+                                    </tr>
+                                {{/each}}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th>Restaurant Name</th>
+                                    <th>Customer Name</th>
+                                    <th>Order Number</th>
+                                    <th>Action</th>
+                                </tr>
+                            </tfoot>
+                            </table>
+                        </div>
+                        <!-- /.card-body -->
+                    </div>
+                    <!-- /.card -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+{{#content "admin_dashboard_script" mode="append"}}
+<script src="/plugins/datatables/jquery.dataTables.min.js"></script>
+<script src="/plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
+<script src="/plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
+<script>
+
+    $(function () {
+        $('#orderListTable').DataTable({
+            "paging": true,
+            "lengthChange": false,
+            "searching": false,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+        });
+    });
+</script>
+{{/content}}

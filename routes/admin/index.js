@@ -680,6 +680,78 @@ adminAPI.post('/vendor/restaurant/item/edit/submit', auth, addItemImage.single('
     }
 })
 
+adminAPI.get('/vendor/restaurant/deliveryBoy/list', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const restaurantAdminId = req.user._id
+
+    const getAllRestaurant = await vendorSchema.find({isActive : true, managerName : restaurantAdminId})
+    .sort({_id : -1})
+
+    let restaurantDeliveryBoys = []
+    if(getAllRestaurant.length > 0){
+        for(let i = 0; i < getAllRestaurant.length; i++){
+            const getAllRestaurantRelatedDeliveryBoys = await AssignDeliveryBoyToRestaurant.find({restaurantId : getAllRestaurant[i]._id})
+            .populate('restaurantId')
+            .populate('deliveryBoyId')
+            .sort({_id : -1})
+
+            if(getAllRestaurantRelatedDeliveryBoys.length > 0){
+                for(let j = 0; j < getAllRestaurantRelatedDeliveryBoys.length; j++){
+
+                    restaurantDeliveryBoys.push(getAllRestaurantRelatedDeliveryBoys[j])
+                }
+            }
+        }
+    }
+
+    res.render('vendor/deliveryBoy/list',{
+        layout : "adminDashboardView",
+        title : "Delivery Boy List",
+        csrfToken: req.csrfToken(),
+        restaurantDeliveryBoys : restaurantDeliveryBoys,
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
+adminAPI.get('/vendor/restaurant/orders/list', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const restaurantAdminId = req.user._id
+
+    const getAllRestaurant = await vendorSchema.find({isActive : true, managerName : restaurantAdminId})
+    .sort({_id : -1})
+
+    let finalOrderList = []
+    if(getAllRestaurant.length > 0){
+        for(let i = 0; i < getAllRestaurant.length; i++){
+            const getAllOrders = await orderSchema.find({vendorId : getAllRestaurant[i]._id})
+            .populate('cartDetail')
+            .populate('addressId')
+            .populate('customerId')
+            .populate('vendorId')
+            .sort({_id : -1})
+
+            if(getAllOrders){
+                for(let j = 0; j < getAllOrders.length; j++){
+                    finalOrderList.push(getAllOrders[j])
+                }
+            }
+        }
+    }
+    res.render('vendor/order/list',{
+        layout : "adminDashboardView",
+        title : "Order List",
+        csrfToken: req.csrfToken(),
+        list : finalOrderList,
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
 //#endregion
 
 adminAPI.get("/logout", async(req, res) => {
