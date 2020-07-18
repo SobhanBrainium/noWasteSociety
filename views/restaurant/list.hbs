@@ -15,6 +15,18 @@
       </div><!-- /.container-fluid -->
     </section>
 
+    {{#if message}}
+        <div class="alert alert-success">
+            {{message}}
+        </div>
+    {{/if}}
+
+    {{#if errorMessage}}
+        <div class="alert alert-danger">
+            {{errorMessage}}
+        </div>
+    {{/if}}
+
     <section class="content">
         <div class="container-fluid">
             <div class="row">
@@ -46,9 +58,9 @@
                                         <td>{{this.managerName.email}}</td>
                                         <td>{{this.managerName.phone}}</td>
                                         <td>
-                                            <a class="btn btn-primary tbl-common-btn" href="/admin/restaurant/edit/{{this._id}}">Edit</a>
+                                            {{!-- <a class="btn btn-primary tbl-common-btn" href="/admin/restaurant/edit/{{this._id}}">Edit</a> --}}
 
-                                            <a href='/admin/restaurant/delete/{{this._id}}' class="btn btn-danger tbl-common-btn approve-req" >Delete</a>
+                                            <a href='/admin/restaurant/deleteAdmin/{{this.managerName._id}}' class="btn btn-danger tbl-common-btn approve-req" >Delete</a>
                                         </td>
                                     </tr>
                                 {{/each}}
@@ -83,7 +95,7 @@
             "paging": true,
             "lengthChange": false,
             "searching": false,
-            "ordering": true,
+            "ordering": false,
             "info": true,
             "autoWidth": false,
             "responsive": true,

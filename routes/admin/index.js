@@ -12,6 +12,7 @@ import vendorSchema from "../../schema/Vendor"
 import itemSchema from "../../schema/Item"
 import deliveryboySchema from "../../schema/DeliveryBoy"
 import assignDeliveryBoySchema from "../../schema/AssignDeliveryBoyToRestaurant"
+import orderAssignToDeliverBoySchema from "../../schema/OrderAssignToDeliveryBoy"
 
 //#region middleware
 import auth from "../../middlewares/auth"
@@ -28,6 +29,7 @@ const csrfProtection = csrf({ cookie: true })
 const User = mongoose.model('User', userSchema)
 const Admin = mongoose.model('Admin', adminSchema)
 const AssignDeliveryBoyToRestaurant = mongoose.model('AssignDeliveryBoyToRestaurant', assignDeliveryBoySchema)
+const OrderAssignToDeliveryBoy = mongoose.model('OrderAssignToDeliveryBoy', orderAssignToDeliverBoySchema)
 
 const mail = require('../../modules/sendEmail');
 
@@ -118,17 +120,41 @@ adminAPI.get("/admin/dashboard", auth, csrfProtection, async (req, res) => {
 })
 
 adminAPI.get('/admin/restaurant', auth, csrfProtection, async (req, res) => {
-    // fetch restaurant admin details
-    const restaurantAdminDetail = await vendorSchema.find({isActive : true})
-    .populate('managerName')
-    .sort({_id : -1})
-    // end
+    const success_message = req.flash('Success')[0];
+    const errorMessage = req.flash('Error')[0]
+
+    const getAllManagers = await Admin.find({isActive : true, userType : "restaurant"}).sort({_id : -1})
+
+    let allData = []
+    if(getAllManagers){
+        for(let i = 0; i <getAllManagers.length; i++){
+            // fetch restaurant admin details
+            const restaurantAdminDetail = await vendorSchema.find({isActive : true, managerName : getAllManagers[i]._id})
+            .populate('managerName')
+            .sort({_id : -1})
+            // end
+
+            if(restaurantAdminDetail.length > 0){
+                for(let j = 0; j < restaurantAdminDetail.length; j++){
+                    allData.push(restaurantAdminDetail[j])
+                }
+            }else{
+                const config = {
+                    restaurantName: '',
+                    managerName : getAllManagers[i].toObject()
+                }
+                allData.push(config)
+            }
+        }
+    }
 
     res.render('restaurant/list', {
         layout : "adminDashboardView",
         title : "Restaurant Admin List",
         csrfToken: req.csrfToken(),
-        list : restaurantAdminDetail
+        list : allData,
+        message : success_message,
+        errorMessage : errorMessage
     })
 })
 
@@ -190,13 +216,27 @@ adminAPI.get('/admin/restaurant/addAdmin', auth, csrfProtection,  async (req, re
     }
 })
 
+adminAPI.get('/admin/restaurant/deleteAdmin/:restaurantAdminId', auth, csrfProtection, async (req, res) => {
+    const restaurantAdminId = req.params.restaurantAdminId
+
+    const deleteAdmin = await Admin.remove({_id : restaurantAdminId})
+
+    if(deleteAdmin){
+        req.flash('Success', "Restaurant admin deleted successfully.")
+        res.redirect('/admin/restaurant')
+    }else{
+        req.flash('Error', "Something went wrong.")
+        res.redirect('/admin/restaurant')
+    }
+})
+
 adminAPI.get('/admin/deliveryBoy', auth, csrfProtection, async (req, res) => {
     const success_message = req.flash('Success')[0];
     const errorMessage = req.flash('Error')[0]
 
     const getDeliveryBoyList = await deliveryboySchema.find({isActive : true}).sort({_id : -1})
 
-    res.render('deliveryBoy/List', {
+    res.render('deliveryBoy/list', {
         layout : "adminDashboardView",
         title : "Delivery Boy List",
         csrfToken: req.csrfToken(),
@@ -750,6 +790,212 @@ adminAPI.get('/vendor/restaurant/orders/list', auth, csrfProtection, async (req,
         errorMessage : errorMessage,
         message : successMessage
     })
+})
+
+adminAPI.get('/vendor/restaurant/order/detail/:orderId', auth, csrfProtection, async (req, res) => {
+    const restaurantId = req.user._id
+    const orderId = req.params.orderId
+
+    const getOrderDetail = await orderSchema.findById(orderId)
+    .populate({
+        path : "cartDetail",
+        select : {
+            _id : 0, item : 1
+        },
+        populate : {
+            path : "item.itemId",
+            select : {
+                itemName : 1, menuImage : 1, _id : 0
+            }
+        }
+    })
+    .populate('addressId')
+    .populate('customerId')
+    .populate('vendorId')
+
+    if(getOrderDetail){
+        if(getOrderDetail.vendorId.managerName.toString() == restaurantId.toString()){
+            res.render('vendor/order/detail', {
+                layout : "adminDashboardView",
+                title : "Order Detail",
+                csrfToken: req.csrfToken(),
+                list : getOrderDetail,
+            })
+        }else{
+            req.flash('Error', "You don't have the permission to see other vendor order detail.")
+            res.redirect('/vendor/restaurant/orders/list')
+        }
+    }else{
+        req.flash('Error', 'No order found.')
+        res.redirect('/vendor/restaurant/orders/list')
+    }
+})
+
+adminAPI.get('/vendor/restaurant/order/delete/:orderId', auth, csrfProtection, async (req, res) => {
+    const restaurantId = req.user._id
+    const orderId = req.params.orderId
+
+    const getOrderDetail = await orderSchema.findById(orderId).populate('vendorId')
+
+    if(getOrderDetail){
+        if(getOrderDetail.vendorId.managerName.toString() == restaurantId.toString()){
+            // delete order
+            const deleteOrder = await orderSchema.remove({_id : orderId})
+            if(deleteOrder){
+                req.flash('Success', "Order has been successfully deleted.")
+                res.redirect('/vendor/restaurant/orders/list')
+            }
+            else{
+                req.flash('Error', 'Something went wrong.')
+                res.redirect('/vendor/restaurant/orders/list')
+            }
+        }else{
+            req.flash('Error', "You don't have the permission to delete other vendor order.")
+            res.redirect('/vendor/restaurant/orders/list')
+        }
+    }else{
+        req.flash('Error', 'No order found.')
+        res.redirect('/vendor/restaurant/orders/list')
+    }
+})
+
+adminAPI.get('/vendor/restaurant/assignOrder/list', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const restaurantAdminId = req.user._id
+
+    const getAllRestaurant = await vendorSchema.find({isActive : true, managerName : restaurantAdminId})
+    .sort({_id : -1})
+
+    let assignOrderData = []
+    if(getAllRestaurant.length > 0){
+        for(let i = 0; i < getAllRestaurant.length; i++){
+            const restaurantId = getAllRestaurant[i]._id
+
+            // find assign order with particular restaurant
+            const getAllAssignOrderOfRestaurant = await OrderAssignToDeliveryBoy.find({vendorId : restaurantId})
+            .populate('orderId')
+            .populate('deliveryBoyId')
+            .populate('vendorId')
+            .populate('customerId')
+            .sort({_id : -1})
+
+            if(getAllAssignOrderOfRestaurant.length > 0){
+                for(let j = 0; j < getAllAssignOrderOfRestaurant.length; j++){
+                    assignOrderData.push(getAllAssignOrderOfRestaurant[j])
+                }
+            }
+        }
+    }
+
+    res.render('vendor/assignOrder/list', {
+        layout : "adminDashboardView",
+        title : "Assign Order List",
+        csrfToken: req.csrfToken(),
+        list : assignOrderData,
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
+adminAPI.get('/vendor/restaurant/assignOrder/assignToDeliveryBoy/add', auth, csrfProtection, async (req, res) => {
+    const errorMessage = req.flash('Error')[0]
+    const successMessage = req.flash('Success')[0]
+
+    const restaurantAdminId = req.user._id
+
+    const getAllRestaurant = await vendorSchema.find({isActive : true, managerName : restaurantAdminId})
+    .sort({_id : -1})
+
+    let allDeliveryBoys = []
+    if(getAllRestaurant.length > 0){
+        // for delivery Boy
+        for(let i = 0; i < getAllRestaurant.length; i++){
+            const restaurantId = getAllRestaurant[i]._id
+
+            const getAllDeliveryBoys = await AssignDeliveryBoyToRestaurant.find({restaurantId : restaurantId}).populate('deliveryBoyId').populate('restaurantId')
+
+            if(getAllDeliveryBoys.length > 0){
+                for(let j = 0; j < getAllDeliveryBoys.length; j++){
+
+                    allDeliveryBoys.push(getAllDeliveryBoys[j])
+                }
+            }
+        }
+    }
+
+    let allOrderList = []
+    if(getAllRestaurant.length > 0){
+        for(let i = 0; i < getAllRestaurant.length; i++){
+            const getAllOrders = await orderSchema.find({vendorId : getAllRestaurant[i]._id})
+            .populate('cartDetail')
+            .populate('addressId')
+            .populate('customerId')
+            .populate('vendorId')
+            .sort({_id : -1})
+
+            if(getAllOrders){
+                for(let j = 0; j < getAllOrders.length; j++){
+                    allOrderList.push(getAllOrders[j])
+                }
+            }
+        }
+    }
+
+    res.render('vendor/assignOrder/add',{
+        layout : "adminDashboardView",
+        title : "Assign Order",
+        csrfToken: req.csrfToken(),
+        allOrderList : allOrderList,
+        allDeliveryBoys : allDeliveryBoys,
+        errorMessage : errorMessage,
+        message : successMessage
+    })
+})
+
+adminAPI.post('/vendor/restaurant/assignOrder/assignToDeliveryBoy/add/submit', auth, csrfProtection, async (req, res) => {
+    const restaurantAdminId = req.user._id
+
+    const orderId = req.body.restaurantOrderId
+    const deliveryBoyId = req.body.deliveryBoysId
+
+    const isAlreadyAssigned = await OrderAssignToDeliveryBoy.findOne({orderId})
+
+    if(isAlreadyAssigned){
+        req.flash('Error', 'Order has already assigned with other delivery boy.')
+        res.redirect('/vendor/restaurant/assignOrder/assignToDeliveryBoy/add')
+    }else{
+        const getOrderDetails = await orderSchema.findById(orderId).populate('vendorId')
+
+        if(getOrderDetails){
+            if(getOrderDetails.vendorId.managerName.toString() == restaurantAdminId.toString()){
+                const addObj = new OrderAssignToDeliveryBoy({
+                    orderId : orderId,
+                    vendorId : getOrderDetails.vendorId._id,
+                    deliveryBoyId : deliveryBoyId,
+                    customerId : getOrderDetails.customerId,
+                    deliveryAddressId : getOrderDetails.addressId
+                })
+                const addedDataResponse = await addObj.save()
+
+                if(addedDataResponse){
+                    req.flash('Success', 'Order has been successfully assigned with delivery boy.')
+                    res.redirect('/vendor/restaurant/assignOrder/list')
+                }else{
+                    req.flash('Error', 'Something went wrong.')
+                    res.redirect('/vendor/restaurant/assignOrder/assignToDeliveryBoy/add')
+                }
+
+            }else{
+                req.flash('Error', 'You do not have the permission to assign this order.')
+                res.redirect('/vendor/restaurant/assignOrder/assignToDeliveryBoy/add')
+            }
+        }else{
+            req.flash('Error', 'No order found.')
+            res.redirect('/vendor/restaurant/assignOrder/assignToDeliveryBoy/add')
+        }
+    }
 })
 
 //#endregion

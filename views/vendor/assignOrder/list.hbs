@@ -3,12 +3,12 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Order List</h1>
+            <h1>Assign Order List</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
               <li class="breadcrumb-item"><a href="/vendor/dashboard">Home</a></li>
-              <li class="breadcrumb-item active">Order List</li>
+              <li class="breadcrumb-item active">Assign Order List</li>
             </ol>
           </div>
         </div>
@@ -32,37 +32,55 @@
             <div class="row">
                 <div class="col-12">
                     <div class="card">
+                        <div class="card-header">
+                            <a href="/vendor/restaurant/assignOrder/assignToDeliveryBoy/add"  class="btn btn-primary pull-right">Assign Order to Delivery Boy</a>
+                            <div class="clearfix"></div>
+                        </div>
                         <!-- /.card-header -->
                         <div class="card-body">
-                            <table id="orderListTable" class="table table-bordered table-hover">
+                            <table id="assignedOrderListTable" class="table table-bordered table-hover">
                             <thead>
                             <tr>
+                                <th>Order No</th>
                                 <th>Restaurant Name</th>
                                 <th>Customer Name</th>
-                                <th>Order Number</th>
-                                <th>Action</th>
+                                <th>Assigned Delivery Boy Name</th>
+                                <th>Order Status</th>
+                                {{!-- <th>Action</th> --}}
                             </tr>
                             </thead>
                             <tbody>
                                 {{#each list}}
                                     <tr>
+                                        <td><a href="/vendor/restaurant/order/detail/{{this.orderId._id}}">{{this.orderId.orderNo}}</a></td>
                                         <td>{{this.vendorId.restaurantName}}</td>
                                         <td>{{this.customerId.firstName}} {{this.customerId.lastName}}</td>
-                                        <td>{{this.orderNo}}</td>
+                                        <td>{{this.deliveryBoyId.firstName}} {{this.deliveryBoyId.lastName}}</td>
                                         <td>
+                                            {{#if_eq this.deliveryStatus 1}} 
+                                                Pending 
+                                            {{/if_eq}}
+
+                                            {{#if_eq this.deliveryStatus 3}} 
+                                                Delivered 
+                                            {{/if_eq}}
+                                        </td>
+                                        {{!-- <td>
                                             <a class="btn btn-primary tbl-common-btn" href="/vendor/restaurant/order/detail/{{this._id}}">Order Detail</a>
 
                                             <a class="btn btn-danger tbl-common-btn" href="/vendor/restaurant/order/delete/{{this._id}}">Delete</a>
-                                        </td>
+                                        </td> --}}
                                     </tr>
                                 {{/each}}
                             </tbody>
                             <tfoot>
                                 <tr>
+                                    <th>Order No</th>
                                     <th>Restaurant Name</th>
                                     <th>Customer Name</th>
-                                    <th>Order Number</th>
-                                    <th>Action</th>
+                                    <th>Assigned Delivery Boy Name</th>
+                                    <th>Order Status</th>
+                                    {{!-- <th>Action</th> --}}
                                 </tr>
                             </tfoot>
                             </table>
@@ -82,7 +100,7 @@
 <script>
 
     $(function () {
-        $('#orderListTable').DataTable({
+        $('#assignedOrderListTable').DataTable({
             "paging": true,
             "lengthChange": false,
             "searching": false,

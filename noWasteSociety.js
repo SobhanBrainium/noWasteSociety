@@ -72,6 +72,8 @@ app.use(allowCrossDomain);
 
 require('./middlewares/passport')(passport);
 
+app.use(express.static(path.join(__dirname, 'public')));
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 
@@ -79,6 +81,9 @@ app.set('views', path.join(__dirname, 'views'));
 var hbs = exphbs.create({
   extname: '.hbs', //we will be creating this layout shortly
   helpers: {
+    inc :function(value, options){
+      return parseInt(value) + 1;
+    },
       if_eq: function (a, b, opts) {
         if (a == b) // Or === depending on your needs
           return opts.fn(this);
@@ -288,7 +293,6 @@ app.use(session({
     name: "id",
     ttl: (1* 60* 60)
 })); // session secret
-app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(passport.initialize());
 app.use(passport.session());
