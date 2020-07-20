@@ -23,6 +23,9 @@ module.exports = function(emailType) {
             subject : "Forgot Password",
             //html    : require('./forgotPasswordMail'),
         },
+        "changeEmailMail" : {
+            subject : "Change Email",
+        },
         "sendOTPdMail" :{
             subject : "OTP verification email",
             //html    : require('./otpVerificationMail'),

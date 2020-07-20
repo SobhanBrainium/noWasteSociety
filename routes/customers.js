@@ -667,7 +667,7 @@ customerAPI.post('/changeEmail', customerValidator.forgotPasswordEmail, async(re
                 //#endregion
 
                 try {
-                    mail('forgotPasswordMail')(customer.email, customer).send();
+                    mail('changeEmailMail')(customer.email, customer).send();
                     res.send({
                         success: true,
                         STATUSCODE: 200,
