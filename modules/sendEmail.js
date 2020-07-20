@@ -1,6 +1,13 @@
 import nodeMailer from "nodemailer"
 import nodeMailerSmtpTransport from "nodemailer-smtp-transport"
 import config from "../config"
+import welcome from "./welcomeMail"
+import forgotPassword from "./forgotPasswordMail"
+import changeEmail from "./changeEmailMail"
+import OTP from "./OTPmail"
+import resent from "./resentOTPMail"
+import restaurantAdmin from "./restaurantAdminWelcomeMail"
+import deliveryBoyAdmin from "./deliveryBoyWelcomeMail"
 
 module.exports = function(emailType) {
     const emailFrom = config.emailConfig.MAIL_USERNAME;
@@ -28,6 +35,9 @@ module.exports = function(emailType) {
         },
         "deliveryBoyWelcomeMail" : {
             subject : "Welcome to No waste society"
+        },
+        "testingMail" : {
+            subject : "Test email",
         }
     };
 
@@ -56,23 +66,28 @@ module.exports = function(emailType) {
                 /** Temporary Email text */
                 switch(emailType) {
                     case 'userRegistrationMail': 
-                        mailOption.text = `Hello ${data.firstName}, welcome to No Waste Society.`
+                        mailOption.html = welcome(data)
                         break;
                     case 'forgotPasswordMail': 
-                        mailOption.text = `Hello ${data.firstName}, use ${data.forgotPasswordOtp} code to reset your password.`
+                        mailOption.html = forgotPassword(data)
+                        break;
+                    case 'changeEmailMail' :
+                        mailOption.html = changeEmail(data)
                         break;
                     case 'sendOTPdMail' : 
-                        mailOption.text = `Hello ${data.firstName}, your OTP is ${data.otp}. Please verify it.`
+                        mailOption.html = OTP(data)
                         break;
                     case 'resendOtpMail':
-                        mailOption.text = `Hello ${data.firstName}, use ${data.otp} code to verify your account.`
+                        mailOption.html = resent(data)
                         break;
                     case 'restaurantAdminWelcomeMail' :
-                        mailOption.text = `Hello ${data.firstName}. welcome to No Waste Society. Your login credential is email ${data.email} and password ${option}. Login URL ${config.serverhost}:${config.port}`
+                        mailOption.html = restaurantAdmin(data, option)
                         break;
-
                     case 'deliveryBoyWelcomeMail' :
-                        mailOption.text = `Hello ${data.firstName}. welcome to No Waste Society. Your login credential is email ${data.email} and password ${option}.`
+                        mailOption.html = deliveryBoyAdmin(data, option)
+                    case 'testingMail' : 
+                        mailOption.html = welcome(data)
+                        break;
                 }
  
 

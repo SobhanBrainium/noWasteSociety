@@ -573,6 +573,7 @@ customerAPI.post('/forgotPassword', customerValidator.forgotPasswordEmail, async
             }
         }
     } catch (error) {
+        console.log(error,'err')
         res.send({
             success: false,
             STATUSCODE: 500,

@@ -32,7 +32,7 @@ module.exports = {
     siteConfig: {
         LOGO: '#',
         SITECOLOR: '#0095B0',
-        SITENAME: 'Beaiware Health'
+        SITENAME: 'No Waste Society'
     },
     uploadContentPath: "public/uploads/content/",
     contentPath: "uploads/content/",
