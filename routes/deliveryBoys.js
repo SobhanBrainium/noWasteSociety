@@ -310,7 +310,7 @@ app.get('/orderDetail', deliveryBoyJwtTokenValidator.validateToken, async (req, 
     
             if(getDetail){
                 for(let i = 0; i < getDetail.orderId.cartDetail.item.length; i++){
-                    getDetail.orderId.cartDetail.item[i].itemId.menuImage = `${config.serverhost}:${config.port}/img/profile-pic/` + getDetail.orderId.cartDetail.item[i].itemId.menuImage
+                    getDetail.orderId.cartDetail.item[i].itemId.menuImage = `${config.serverhost}:${config.port}/img/item/` + getDetail.orderId.cartDetail.item[i].itemId.menuImage
                 }
     
                 res.send({

@@ -1246,37 +1246,40 @@ customerAPI.post('/restaurantDetail', jwtTokenValidator.validateToken,restaurant
 
                                 //Get Item Details
                                 var restaurantItemDetails = await restaurantCategoryItem(vendorId);
+                                console.log(restaurantItemDetails,'restaurantItemDetails')
                                 if (restaurantItemDetails != 'err') {
                                     
                                     //#region check item of ths restaurant is exist in cart or not.
                                     const fetchPendingCart = await Cart.findOne({userId : req.user._id, status : 'Y', isCheckout : 1})
                                     //#endregion
-                                    
-                                    for(let i = 0; i < restaurantItemDetails.item.length; i++){
-                                        const itemId = restaurantItemDetails.item[i].itemId.toString()
-                                        
-                                        let cartItemQuantity = 0
-                                        if(fetchPendingCart){
-                                            for(let j = 0; j < fetchPendingCart.item.length; j++){
-                                                if(fetchPendingCart.item[j].itemId.toString() == itemId){
-                                                    cartItemQuantity = fetchPendingCart.item[j].itemQuantity
+                                    if(restaurantItemDetails.item != undefined){
 
-                                                    restaurantItemDetails.item[i] = {
-                                                        ...restaurantItemDetails.item[i],
-                                                        cartItemQuantity
+                                        for(let i = 0; i < restaurantItemDetails.item.length; i++){
+                                            const itemId = restaurantItemDetails.item[i].itemId.toString()
+                                            
+                                            let cartItemQuantity = 0
+                                            if(fetchPendingCart){
+                                                for(let j = 0; j < fetchPendingCart.item.length; j++){
+                                                    if(fetchPendingCart.item[j].itemId.toString() == itemId){
+                                                        cartItemQuantity = fetchPendingCart.item[j].itemQuantity
+    
+                                                        restaurantItemDetails.item[i] = {
+                                                            ...restaurantItemDetails.item[i],
+                                                            cartItemQuantity
+                                                        }
                                                     }
                                                 }
+                                                
+                                            }
+                                            restaurantItemDetails.item[i] = {
+                                                ...restaurantItemDetails.item[i],
+                                                cartItemQuantity
                                             }
                                             
                                         }
-                                        restaurantItemDetails.item[i] = {
-                                            ...restaurantItemDetails.item[i],
-                                            cartItemQuantity
-                                        }
-                                        
+    
+                                        responseDt.catitem = restaurantItemDetails;
                                     }
-
-                                    responseDt.catitem = restaurantItemDetails;
 
                                     res.send({
                                         success: true,
@@ -1519,11 +1522,11 @@ customerAPI.post('/removePreviousWholeCart', jwtTokenValidator.validateToken, as
 })
 //#endregion
 
-//#region fetch user cart section
+//#region fetch user cart list only pending cart
 customerAPI.get('/fetchCart', jwtTokenValidator.validateToken, async (req, res) => {
     try {
-        const fetchCartList = await Cart.findOne({userId : req.user._id, status : 'Y'})
-        .populate('vendorId', {_id : 0, restaurantName : 1,  })
+        const fetchCartList = await Cart.findOne({userId : req.user._id, status : 'Y', isCheckout : 1})
+        .populate('vendorId', {_id : 1, restaurantName : 1,  })
         .populate('item.itemId', {_id : 1, menuImage : 1, itemName : 1  })
 
         if(fetchCartList){
@@ -1555,7 +1558,7 @@ customerAPI.get('/fetchCart', jwtTokenValidator.validateToken, async (req, res) 
 })
 //#endregion
 
-//#region update Cart
+//#region update Cart item
 customerAPI.post('/updateCartItem', jwtTokenValidator.validateToken, customerValidator.updateCartItemValidator, async (req, res) => {
     try {
         const data = req.body
@@ -1874,6 +1877,13 @@ customerAPI.post('/postOrder',jwtTokenValidator.validateToken, restaurantValidat
                                                 // var pushMessage = 'You have received a new order'
                                                 // var receiverId = orderVendorId;
                                                 // sendPush(receiverId, pushMessage,orderNo);
+
+                                                //#region for the time being without payment update cart section isCheckout = 2, while payment section is integrated then this code will be run after successful payment.
+
+                                                isCartExist.isCheckout = 2 //payment done
+                                                await isCartExist.save()
+
+                                                //#endregion
 
                                                 //find new order detail
                                                 const newOrder = await orderSchema.findById(orderId)
@@ -2351,6 +2361,112 @@ customerAPI.post('/markAsUnFavorite', jwtTokenValidator.validateToken, async(req
             message: 'No restaurant found as favorite.',
             response_data: {}
         })
+    } catch (error) {
+        console.log(error,'error')
+        res.send({
+            success: false,
+            STATUSCODE: 500,
+            message: 'Internal DB error.',
+            response_data: {}
+        }); 
+    }
+})
+//#endregion
+
+//#region search by restaurant name
+customerAPI.get("/searchByRestaurantName", jwtTokenValidator.validateToken, async (req, res) => {
+    try {
+        const data = req.query
+        const customerDetail = req.user
+        if(data){
+            let obj = {}
+            let responseDt = []
+            let response_data = {}
+
+            //#region field  validation
+            if(!data.latitude){
+                res.send({
+                    success: false,
+                    STATUSCODE: 404,
+                    message: 'latitude is required.',
+                    response_data: {}
+                }); 
+            }
+            obj['latt'] = data.latitude
+
+            if(!data.longitude){
+                res.send({
+                    success: false,
+                    STATUSCODE: 404,
+                    message: 'longitude is required.',
+                    response_data: {}
+                }); 
+            }
+            obj['long'] = data.longitude
+
+            if(!data.restaurantName){
+                res.send({
+                    success: false,
+                    STATUSCODE: 404,
+                    message: 'restaurantName is required.',
+                    response_data: {}
+                }); 
+            }
+            obj['restaurantName'] = {$regex : data.restaurantName, $options: "i"}
+            //#endregion
+
+
+            const getVendor = await vendorSchema.find({
+                restaurantName : obj['restaurantName'],
+                isActive: true
+            }).sort({_id : -1})
+
+            if(getVendor.length > 0){
+                var vendorIds = [];
+                for (let restaurant of getVendor) {
+                    var responseObj = {};
+                    responseObj = {
+                        id: restaurant._id,
+                        name: restaurant.restaurantName,
+                        description: restaurant.description,
+                        logo: `${config.serverhost}:${config.port}/img/vendor/${restaurant.logo}`,
+                        rating: restaurant.rating
+                    };
+                    console.log(restaurant);
+
+                    //Calculate Distance
+                    var sourceLat = restaurant.location.coordinates[1];
+                    var sourceLong = restaurant.location.coordinates[0];
+
+                    responseObj.distance = await getDistanceinMtr(sourceLat, sourceLong, obj['latt'], obj['long']);
+                    // console.log(responseObj);
+
+                    const customerId = customerDetail._id;
+                    const vendorId = restaurant._id;
+                    responseObj.favorite = await vendorFavouriteSchema.countDocuments({ vendorId: vendorId, customerId: customerId });
+
+                    responseDt.push(responseObj);
+                    vendorIds.push(restaurant._id);
+                }
+
+                //Restaurant
+                response_data.vendor = responseDt;
+
+                res.send({
+                    success: true,
+                    STATUSCODE: 200,
+                    message: `${getVendor.length} nearby restaurants found.`,
+                    response_data: response_data
+                })
+            }else{
+                res.send({
+                    success: false,
+                    STATUSCODE: 404,
+                    message: 'No restaurant found.',
+                    response_data: {}
+                }); 
+            }
+        }
     } catch (error) {
         console.log(error,'error')
         res.send({
